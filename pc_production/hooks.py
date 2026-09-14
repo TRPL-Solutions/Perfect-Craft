@@ -15,6 +15,7 @@ fixtures = [
                 [
                     "Stock Reconciliation",
                     "Stock Reconciliation Item",
+                    "Delivery Trip",
                 ],
             ],
             [
@@ -26,6 +27,13 @@ fixtures = [
                     "custom_adjustment_per_qty",
                     "custom_production_expenses",
                     "custom_item_valuation_rate",
+                    "custom_transporter",
+                    "custom_supplier_name",
+                    "custom_address",
+                    "custom_gate_pass_date",
+                    "custom_remarks",
+                    "custom_delivery_charges",
+                    "custom_purchase_invoice",
                 ],
             ],
         ],
@@ -60,6 +68,15 @@ doctype_js = {
 
 
 doc_events = {
+    "Delivery Trip": {
+        "on_submit":
+            "pc_production.delivery_trip.create_purchase_invoice",
+        "on_cancel":
+            "pc_production.delivery_trip.cancel_purchase_invoice",
+        "on_trash":
+            "pc_production.delivery_trip.delete_purchase_invoice",
+    },
+
     "Stock Entry": {
         "before_validate":
             "pc_production.stock_entry.apply_monthly_production_overhead"
@@ -79,11 +96,13 @@ doc_events = {
 jinja = {
     "methods": [
         "pc_production.print_utils.get_sales_order_print_context",
+        "pc_production.print_utils.get_delivery_trip_print_context",
         "pc_production.sales_invoice_print.get_sales_invoice_print_context",
     ]
 }
 
 after_migrate = [
     "pc_production.print_utils.ensure_sales_order_print_format",
+    "pc_production.print_utils.ensure_delivery_trip_print_format",
     "pc_production.sales_invoice_print.ensure_sales_invoice_print_format",
 ]

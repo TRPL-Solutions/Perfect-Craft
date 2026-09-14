@@ -283,5 +283,86 @@
   "translatable": 0,
   "unique": 0,
   "width": null
+ },
+ {
+  "allow_on_submit": 0,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_transporter",
+  "fieldtype": "Link",
+  "insert_after": "company",
+  "label": "Transporter",
+  "name": "Delivery Trip-custom_transporter",
+  "options": "Supplier",
+  "reqd": 1
+ },
+ {
+  "allow_on_submit": 0,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fetch_from": "custom_transporter.supplier_name",
+  "fetch_if_empty": 1,
+  "fieldname": "custom_supplier_name",
+  "fieldtype": "Data",
+  "insert_after": "custom_transporter",
+  "label": "Supplier Name",
+  "name": "Delivery Trip-custom_supplier_name",
+  "read_only": 1
+ },
+ {
+  "allow_on_submit": 0,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_address",
+  "fieldtype": "Small Text",
+  "insert_after": "custom_supplier_name",
+  "label": "Address",
+  "name": "Delivery Trip-custom_address"
+ },
+ {
+  "allow_on_submit": 0,
+  "default": "Today",
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_gate_pass_date",
+  "fieldtype": "Date",
+    "insert_after": "custom_delivery_charges",
+  "label": "Date",
+  "name": "Delivery Trip-custom_gate_pass_date",
+  "reqd": 1
+ },
+ {
+  "allow_on_submit": 0,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_remarks",
+  "fieldtype": "Small Text",
+  "insert_after": "custom_gate_pass_date",
+  "label": "Remarks",
+  "name": "Delivery Trip-custom_remarks"
+ },
+ {
+  "allow_on_submit": 0,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_delivery_charges",
+  "fieldtype": "Currency",
+    "insert_after": "email_notification_sent",
+  "label": "Delivery Charges",
+  "name": "Delivery Trip-custom_delivery_charges",
+  "non_negative": 1,
+  "reqd": 1
+ },
+ {
+  "allow_on_submit": 1,
+  "dt": "Delivery Trip",
+  "doctype": "Custom Field",
+  "fieldname": "custom_purchase_invoice",
+  "fieldtype": "Link",
+    "insert_after": "custom_remarks",
+  "label": "Purchase Invoice",
+  "name": "Delivery Trip-custom_purchase_invoice",
+  "options": "Purchase Invoice",
+  "read_only": 1
  }
 ]

@@ -1,0 +1,68 @@
+<style>
+    @page { size: A4 landscape; margin: 5mm; }
+    * { box-sizing: border-box; }
+    .gate-pass-sheet { display: flex; font-family: Arial, sans-serif; font-size: 8px; width: 100%; }
+    .gate-pass-copy { border-right: 1px dotted #777; padding: 0 5px; width: 50%; }
+    .gate-pass-copy:last-child { border-right: 0; }
+    .company { font-size: 13px; font-weight: 700; text-align: center; text-decoration: underline; }
+    .site { font-size: 11px; font-weight: 700; margin: 3px 0 5px; text-align: center; }
+    .gate-pass-heading { background: #ddd; border-bottom: 1px solid #222; border-top: 1px solid #222; font-size: 13px; margin-bottom: 5px; padding: 3px; text-align: center; text-decoration: underline; }
+    .details { border-collapse: collapse; line-height: 1.25; width: 100%; }
+    .details td { padding: 1px 3px; vertical-align: top; }
+    .label { font-weight: 700; white-space: nowrap; width: 15%; }
+    .value { width: 35%; }
+    .goods { border: 1px solid #222; border-collapse: collapse; margin-top: 6px; table-layout: fixed; width: 100%; }
+    .goods th, .goods td { border: 1px solid #555; padding: 3px 4px; }
+    .goods th { font-size: 7px; height: 28px; text-align: center; }
+    .goods td { height: 19px; }
+    .goods .serial { text-align: center; width: 7%; }
+    .goods .description { width: 50%; }
+    .goods .quantity { text-align: center; width: 17%; }
+    .goods .remarks { width: 26%; }
+    .goods .blank-row td { height: 245px; }
+    .total-row td { font-weight: 700; height: 25px; text-align: right; }
+    .signatures { margin-top: 66px; width: 100%; }
+    .signatures td { padding: 0 4px; text-align: center; width: 33.33%; }
+    .signature-line { border-top: 1px solid #222; display: block; padding-top: 3px; }
+</style>
+
+{% set print_data = get_delivery_trip_print_context(doc) %}
+<div class="gate-pass-sheet">
+    {% for copy in ["INTERNAL COPY", "DRIVER COPY"] %}
+    <div class="gate-pass-copy">
+        <div class="company">{{ print_data.company or "Perfect Craft 2025-2026" }}</div>
+        <div class="site">SITE, Karachi</div>
+        <div class="gate-pass-heading">GATE PASS</div>
+        <table class="details">
+            <tr>
+                <td class="label">G.P No. :</td><td class="value">{{ print_data.gate_pass_no }}</td>
+                <td class="label">Date :</td><td class="value">{{ print_data.date }}</td>
+            </tr>
+            <tr>
+                <td class="label">Order No. :</td><td class="value">{{ print_data.order_no }}</td>
+                <td class="label">Time :</td><td class="value">{{ print_data.time }}</td>
+            </tr>
+            <tr><td class="label">M/s. :</td><td colspan="3">{{ print_data.supplier_name or print_data.transporter }}</td></tr>
+            <tr><td class="label">Address :</td><td colspan="3">{{ print_data.address }}</td></tr>
+            <tr><td class="label">Transporter :</td><td colspan="3">{{ print_data.transporter }}</td></tr>
+            <tr>
+                <td class="label">Driver Name :</td><td>{{ print_data.driver_name }}</td>
+                <td class="label">Vehicle No. :</td><td>{{ print_data.vehicle }}</td>
+            </tr>
+        </table>
+        <table class="goods">
+            <thead><tr><th class="serial">S #</th><th class="description">Description of Goods</th><th class="quantity">Quantity</th><th class="remarks">Remarks</th></tr></thead>
+            <tbody>
+                {% for row in print_data.rows %}
+                <tr><td class="serial">{{ loop.index }}</td><td>{{ row.description }}</td><td class="quantity">{{ row.qty }} {{ row.uom }}</td><td>{{ row.remarks }}</td></tr>
+                {% endfor %}
+                <tr class="blank-row"><td></td><td></td><td></td><td></td></tr>
+                <tr class="total-row"><td></td><td>Total :</td><td>{{ print_data.total_qty }}</td><td></td></tr>
+            </tbody>
+        </table>
+        <table class="signatures">
+            <tr><td><span class="signature-line">Prepared By</span></td><td><span class="signature-line">Authorized Signature</span></td><td><span class="signature-line">Receiver's Signature</span></td></tr>
+        </table>
+    </div>
+    {% endfor %}
+</div>

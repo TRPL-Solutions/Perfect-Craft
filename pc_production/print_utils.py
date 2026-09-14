@@ -3,10 +3,11 @@ from collections import defaultdict
 from pathlib import Path
 
 import frappe
-from frappe.utils import flt, getdate, strip_html_tags
+from frappe.utils import flt, get_datetime, getdate, strip_html_tags
 
 
 PRINT_FORMAT_NAME = "Perfect Craft Sales Order Two Copy"
+DELIVERY_TRIP_PRINT_FORMAT_NAME = "Delivery Trip Gate Pass Two Copy"
 
 
 def _money(value):
@@ -27,6 +28,57 @@ def _date(value):
         return ""
 
     return getdate(value).strftime("%d-%m-%Y")
+
+
+def get_delivery_trip_print_context(doc):
+    rows = []
+    order_numbers = []
+
+    for stop in doc.get("delivery_stops") or []:
+        if stop.get("delivery_note"):
+            order_numbers.append(stop.delivery_note)
+            delivery_note = frappe.get_doc(
+                "Delivery Note",
+                stop.delivery_note,
+            )
+
+            for item in delivery_note.get("items") or []:
+                rows.append(
+                    {
+                        "description": item.item_name or item.item_code,
+                        "qty": _qty(item.qty),
+                        "uom": item.uom or "",
+                        "remarks": "",
+                    }
+                )
+        else:
+            rows.append(
+                {
+                    "description": stop.get("details") or stop.get("customer") or "",
+                    "qty": "",
+                    "uom": stop.get("uom") or "",
+                    "remarks": "",
+                }
+            )
+
+    departure_time = doc.get("departure_time")
+    departure_datetime = get_datetime(departure_time) if departure_time else None
+
+    return {
+        "company": doc.get("company") or "",
+        "gate_pass_no": doc.get("name") or "",
+        "date": _date(doc.get("custom_gate_pass_date") or doc.get("departure_time")),
+        "time": departure_datetime.strftime("%I:%M %p") if departure_datetime else "",
+        "order_no": ", ".join(order_numbers),
+        "transporter": doc.get("custom_transporter") or "",
+        "supplier_name": doc.get("custom_supplier_name") or "",
+        "address": doc.get("custom_address") or doc.get("driver_address") or "",
+        "driver_name": doc.get("driver_name") or "",
+        "vehicle": doc.get("vehicle") or "",
+        "remarks": doc.get("custom_remarks") or "",
+        "rows": rows,
+        "total_qty": _qty(sum(flt(row["qty"]) for row in rows if row["qty"])),
+    }
 
 
 def _get_address(doc):
@@ -552,3 +604,29 @@ def ensure_sales_order_print_format():
     print_format.save(
         ignore_permissions=True
     )
+
+
+def ensure_delivery_trip_print_format():
+    html_path = frappe.get_app_path(
+        "pc_production",
+        "print_formats",
+        "delivery_trip_gate_pass_two_copy.html",
+    )
+
+    html = Path(html_path).read_text(encoding="utf-8")
+    if frappe.db.exists("Print Format", DELIVERY_TRIP_PRINT_FORMAT_NAME):
+        print_format = frappe.get_doc(
+            "Print Format",
+            DELIVERY_TRIP_PRINT_FORMAT_NAME,
+        )
+    else:
+        print_format = frappe.new_doc("Print Format")
+        print_format.name = DELIVERY_TRIP_PRINT_FORMAT_NAME
+
+    print_format.doc_type = "Delivery Trip"
+    print_format.print_format_type = "Jinja"
+    print_format.custom_format = 1
+    print_format.standard = "No"
+    print_format.disabled = 0
+    print_format.html = html
+    print_format.save(ignore_permissions=True)
