@@ -1,0 +1,307 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-15 09:06:06.368632",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "time",
+  "column_break_jggf",
+  "type",
+  "for_vehicle",
+  "warehouse",
+  "column_break_hace",
+  "return_type",
+  "gate_pass_type",
+  "gate_pass_for",
+  "column_break_frcp",
+  "company",
+  "supplier",
+  "section_break_fmwz",
+  "created_by",
+  "vehicle_no",
+  "column_break_lhpi",
+  "verified_by",
+  "driver_name",
+  "column_break_dffc",
+  "handover_to",
+  "column_break_ketk",
+  "received_by",
+  "section_break_ukyo",
+  "items",
+  "custom_total_amount",
+  "section_break_frsd",
+  "authorized_by",
+  "amended_from",
+  "custom_tab_2",
+  "section_break_transport",
+  "transporter",
+  "transporter_name",
+  "column_break_transport_1",
+  "address",
+  "delivery_charges",
+  "column_break_transport_2",
+  "purchase_invoice",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "default": "Now",
+   "fieldname": "time",
+   "fieldtype": "Time",
+   "label": "Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_jggf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Autocomplete",
+   "label": "Type",
+   "options": "\nParts\nTools\nGeneral Items\nLocal Sale\nExport Sale\nLeather Store\nSample",
+   "reqd": 1
+  },
+  {
+   "fieldname": "for_vehicle",
+   "fieldtype": "Link",
+   "label": "For Vehicle",
+   "options": "Vehicle",
+   "read_only": 1
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "column_break_hace",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "return_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Return Type",
+   "options": "Returnable\nNon-Returnable",
+   "reqd": 1
+  },
+  {
+   "fieldname": "gate_pass_type",
+   "fieldtype": "Select",
+   "label": "Gate Pass Type",
+   "options": "\nInternal\nExternal",
+   "reqd": 1
+  },
+  {
+   "fieldname": "gate_pass_for",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Gate Pass For",
+   "options": "\nIN\nOut",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_frcp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.gate_pass_type==\"External\"",
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier/Vendor",
+   "mandatory_depends_on": "eval:doc.gate_pass_type==\"External\"",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "section_break_fmwz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "created_by",
+   "fieldtype": "Link",
+   "label": "Created By",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vehicle_no",
+   "fieldtype": "Data",
+   "label": "Vehicle No"
+  },
+  {
+   "fieldname": "column_break_lhpi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Data",
+   "label": "Verified By",
+   "reqd": 1
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "label": "Driver Name"
+  },
+  {
+   "fieldname": "column_break_dffc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "handover_to",
+   "fieldtype": "Data",
+   "label": "Handover To"
+  },
+  {
+   "fieldname": "column_break_ketk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "received_by",
+   "fieldtype": "Data",
+   "label": "Received By"
+  },
+  {
+   "fieldname": "section_break_ukyo",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Gate Pass CT",
+   "reqd": 1
+  },
+  {
+   "fieldname": "custom_total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Qty"
+  },
+  {
+   "fieldname": "section_break_frsd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "authorized_by",
+   "fieldtype": "Signature",
+   "label": "Authorized By"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Gate Pass",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "custom_tab_2",
+   "fieldtype": "Tab Break",
+   "label": "Tab 2"
+  },
+  {
+   "fieldname": "section_break_transport",
+   "fieldtype": "Section Break",
+   "label": "Transporter & Purchase Invoice"
+  },
+  {
+   "description": "Transporter against whom the Purchase Invoice for Transport Charges will be created.",
+   "fieldname": "transporter",
+   "fieldtype": "Link",
+   "label": "Transporter",
+   "options": "Supplier"
+  },
+  {
+   "fetch_from": "transporter.supplier_name",
+   "fieldname": "transporter_name",
+   "fieldtype": "Data",
+   "label": "Supplier Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_transport_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Small Text",
+   "label": "Address"
+  },
+  {
+   "fieldname": "delivery_charges",
+   "fieldtype": "Currency",
+   "label": "Delivery Charges"
+  },
+  {
+   "fieldname": "column_break_transport_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "no_copy": 1,
+   "options": "Purchase Invoice",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-09-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PC Production",
+ "name": "Gate Pass",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

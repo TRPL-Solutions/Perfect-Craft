@@ -5,6 +5,9 @@ app_description = "Perfect Craft Production Costing"
 app_email = "jaweriabibi098@gmail.com"
 app_license = "mit"
 
+auto_cancel_exempted_doctypes = ["Purchase Invoice"]
+
+
 fixtures = [
     {
         "dt": "Custom Field",

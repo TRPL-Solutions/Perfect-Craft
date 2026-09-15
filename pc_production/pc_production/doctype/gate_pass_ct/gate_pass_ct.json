@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-15 09:06:06.368632",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "type_of_product",
+  "type",
+  "qty",
+  "out_date",
+  "column_break_wtkp",
+  "item_code",
+  "uom",
+  "expected_return_date",
+  "column_break_ynhj",
+  "item_name",
+  "issued_to_persondept",
+  "actual_return_date",
+  "section_break_mcyd",
+  "purpose",
+  "section_break_qeig",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "default": "Non-Inventory",
+   "fieldname": "type_of_product",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type of Product",
+   "options": "\nInventory\nNon-Inventory",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "\nProduct\nService\nRepair",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "1",
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "QTY",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "Now",
+   "fieldname": "out_date",
+   "fieldtype": "Datetime",
+   "label": "Out Date & Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_wtkp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.type_of_product==\"Inventory\"",
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "mandatory_depends_on": "eval:doc.type_of_product ==\"Inventory\"",
+   "options": "Item",
+   "read_only_depends_on": "eval:doc.type_of_product ==\"Non-Inventory\""
+  },
+  {
+   "fetch_from": "item_code.stock_uom",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "expected_return_date",
+   "fieldtype": "Date",
+   "label": "Expected Return Date"
+  },
+  {
+   "fieldname": "column_break_ynhj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "fetch_from": "item_code.item_name",
+   "fetch_if_empty": 1,
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Name",
+   "mandatory_depends_on": "eval:doc.type_of_product ==\"Non-Inventory\"",
+   "read_only_depends_on": "eval:doc.type_of_product==\"Inventory\""
+  },
+  {
+   "fieldname": "issued_to_persondept",
+   "fieldtype": "Data",
+   "label": "Issued To (Person/Dept)"
+  },
+  {
+   "fieldname": "actual_return_date",
+   "fieldtype": "Date",
+   "label": "Actual Return Date",
+   "no_copy": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_mcyd",
+   "fieldtype": "Section Break",
+   "label": "Purpose / Job Reference"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Text",
+   "label": "Purpose / Job Reference"
+  },
+  {
+   "fieldname": "section_break_qeig",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "PC Production",
+ "name": "Gate Pass CT",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
