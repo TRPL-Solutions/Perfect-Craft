@@ -100,6 +100,7 @@ jinja = {
     "methods": [
         "pc_production.print_utils.get_sales_order_print_context",
         "pc_production.print_utils.get_delivery_trip_print_context",
+        "pc_production.print_utils.get_gate_pass_print_context",
         "pc_production.sales_invoice_print.get_sales_invoice_print_context",
     ]
 }
@@ -107,5 +108,6 @@ jinja = {
 after_migrate = [
     "pc_production.print_utils.ensure_sales_order_print_format",
     "pc_production.print_utils.ensure_delivery_trip_print_format",
+    "pc_production.print_utils.ensure_gate_pass_print_format",
     "pc_production.sales_invoice_print.ensure_sales_invoice_print_format",
 ]
