@@ -18,12 +18,14 @@ def apply_monthly_production_overhead(doc, method=None):
     No Company / Cost Center is hard-coded.
     """
 
-    # Remove only our previous generated rows.
-    # Manual Additional Costs remain untouched.
-    remove_auto_overhead_rows(doc)
-
     if doc.docstatus != 0:
         return
+
+    sync_item_cost_centers(doc)
+
+    # Remove only our previous generated rows from drafts.
+    # Submitted entries must retain their persisted overhead rows.
+    remove_auto_overhead_rows(doc)
 
     if doc.purpose != "Manufacture":
         return
@@ -95,6 +97,7 @@ def apply_monthly_production_overhead(doc, method=None):
     # resolved it, apply it to the document.
     if not doc.cost_center:
         doc.cost_center = setting.cost_center
+        sync_item_cost_centers(doc)
 
     total_allocated = 0
 
@@ -326,3 +329,13 @@ def remove_auto_overhead_rows(doc):
         "additional_costs",
         manual_rows,
     )
+
+
+def sync_item_cost_centers(doc):
+    """Apply the Stock Entry Cost Center to every item row."""
+
+    if not doc.cost_center:
+        return
+
+    for row in doc.get("items") or []:
+        row.cost_center = doc.cost_center
