@@ -3026,6 +3026,186 @@ def get_manufacturing_movement(
 # ACTUAL EXPENSE FROM GL
 # =============================================================
 
+# def get_gross_actual_expense(
+#     company,
+#     cost_center,
+#     account,
+#     from_date,
+#     to_date,
+#     own_production_vouchers,
+# ):
+#     gle = frappe.qb.DocType(
+#         "GL Entry"
+#     )
+
+#     result = (
+#         frappe.qb.from_(
+#             gle
+#         )
+#         .select(
+#             Sum(
+#                 gle.debit
+#                 - gle.credit
+#             ).as_(
+#                 "net_amount"
+#             )
+#         )
+#         .where(
+#             (
+#                 gle.company
+#                 == company
+#             )
+#             & (
+#                 gle.account
+#                 == account
+#             )
+#             & (
+#                 gle.cost_center
+#                 == cost_center
+#             )
+#             & (
+#                 gle.posting_date
+#                 >= getdate(
+#                     from_date
+#                 )
+#             )
+#             & (
+#                 gle.posting_date
+#                 <= getdate(
+#                     to_date
+#                 )
+#             )
+#             & (
+#                 gle.is_cancelled
+#                 == 0
+#             )
+#         )
+#     ).run(
+#         as_dict=True
+#     )
+
+#     net_amount = (
+#         flt(
+#             result[
+#                 0
+#             ].net_amount
+#         )
+#         if result
+#         else 0
+#     )
+
+#     capitalized_expected = 0
+
+#     if own_production_vouchers:
+#         additional_costs = (
+#             frappe.get_all(
+#                 "Landed Cost Taxes and Charges",
+#                 filters={
+#                     "parent":
+#                         (
+#                             "in",
+#                             list(
+#                                 own_production_vouchers
+#                             ),
+#                         ),
+#                     "parenttype":
+#                         "Stock Entry",
+#                     "expense_account":
+#                         account,
+#                 },
+#                 fields=[
+#                     "description",
+#                     "amount",
+#                     "base_amount",
+#                 ],
+#                 limit_page_length=0,
+#             )
+#         )
+
+#         auto_amount = sum(
+#             flt(
+#                 row.base_amount
+#                 or row.amount
+#             )
+#             for row
+#             in additional_costs
+#             if (
+#                 row.description
+#                 or ""
+#             ).startswith(
+#                 AUTO_PREFIX
+#             )
+#         )
+
+#         if (
+#             auto_amount
+#             > AMOUNT_TOLERANCE
+#         ):
+#             stock_entry_gl = (
+#                 frappe.qb.from_(
+#                     gle
+#                 )
+#                 .select(
+#                     Sum(
+#                         gle.credit
+#                         - gle.debit
+#                     ).as_(
+#                         "capitalized_credit"
+#                     )
+#                 )
+#                 .where(
+#                     (
+#                         gle.company
+#                         == company
+#                     )
+#                     & (
+#                         gle.account
+#                         == account
+#                     )
+#                     & (
+#                         gle.voucher_type
+#                         == "Stock Entry"
+#                     )
+#                     & (
+#                         gle.voucher_no.isin(
+#                             list(
+#                                 own_production_vouchers
+#                             )
+#                         )
+#                     )
+#                     & (
+#                         gle.is_cancelled
+#                         == 0
+#                     )
+#                 )
+#             ).run(
+#                 as_dict=True
+#             )
+
+#             gl_credit = (
+#                 flt(
+#                     stock_entry_gl[
+#                         0
+#                     ].capitalized_credit
+#                 )
+#                 if stock_entry_gl
+#                 else 0
+#             )
+
+#             capitalized_expected = min(
+#                 auto_amount,
+#                 max(
+#                     gl_credit,
+#                     0,
+#                 ),
+#             )
+
+#     return (
+#         net_amount
+#         + capitalized_expected
+#     )
+
+
 def get_gross_actual_expense(
     company,
     cost_center,
@@ -3034,6 +3214,16 @@ def get_gross_actual_expense(
     to_date,
     own_production_vouchers,
 ):
+    """
+    Return actual expense from GL while neutralizing estimated
+    production-expense capitalization.
+
+    Supports:
+    1. New Stock Entry Expense child table.
+    2. Legacy submitted Stock Entries which still contain the
+       old auto-generated Additional Costs rows.
+    """
+
     gle = frappe.qb.DocType(
         "GL Entry"
     )
@@ -3097,19 +3287,74 @@ def get_gross_actual_expense(
     capitalized_expected = 0
 
     if own_production_vouchers:
-        additional_costs = (
+
+        voucher_names = list(
+            own_production_vouchers
+        )
+
+        # =====================================================
+        # NEW IMPLEMENTATION
+        #
+        # Estimated production expenses now live in:
+        # Stock Entry -> custom_expenses -> Stock Entry Expense
+        # =====================================================
+
+        estimated_rows = (
+            frappe.get_all(
+                "Stock Entry Expense",
+                filters={
+                    "parent":
+                        (
+                            "in",
+                            voucher_names,
+                        ),
+
+                    "parenttype":
+                        "Stock Entry",
+
+                    "parentfield":
+                        "custom_expenses",
+
+                    "expense_account":
+                        account,
+                },
+                fields=[
+                    "estimated_amount",
+                ],
+                limit_page_length=0,
+            )
+        )
+
+        estimated_amount = sum(
+            flt(
+                row.estimated_amount
+            )
+            for row in estimated_rows
+        )
+
+        # =====================================================
+        # LEGACY COMPATIBILITY
+        #
+        # Existing submitted Stock Entries created before this
+        # change may still have old generated Additional Cost rows.
+        #
+        # We continue supporting those records so previous months
+        # do not break.
+        # =====================================================
+
+        legacy_rows = (
             frappe.get_all(
                 "Landed Cost Taxes and Charges",
                 filters={
                     "parent":
                         (
                             "in",
-                            list(
-                                own_production_vouchers
-                            ),
+                            voucher_names,
                         ),
+
                     "parenttype":
                         "Stock Entry",
+
                     "expense_account":
                         account,
                 },
@@ -3122,13 +3367,12 @@ def get_gross_actual_expense(
             )
         )
 
-        auto_amount = sum(
+        legacy_amount = sum(
             flt(
                 row.base_amount
                 or row.amount
             )
-            for row
-            in additional_costs
+            for row in legacy_rows
             if (
                 row.description
                 or ""
@@ -3137,10 +3381,17 @@ def get_gross_actual_expense(
             )
         )
 
+        # New rows + historical old rows.
+        auto_amount = (
+            estimated_amount
+            + legacy_amount
+        )
+
         if (
             auto_amount
             > AMOUNT_TOLERANCE
         ):
+
             stock_entry_gl = (
                 frappe.qb.from_(
                     gle
@@ -3168,9 +3419,7 @@ def get_gross_actual_expense(
                     )
                     & (
                         gle.voucher_no.isin(
-                            list(
-                                own_production_vouchers
-                            )
+                            voucher_names
                         )
                     )
                     & (
@@ -3204,7 +3453,6 @@ def get_gross_actual_expense(
         net_amount
         + capitalized_expected
     )
-
 
 # =============================================================
 # STOCK QUANTITY HELPERS
