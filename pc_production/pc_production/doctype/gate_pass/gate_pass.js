@@ -2,17 +2,67 @@
 // For license information, please see license.txt
 
 
-// ================================================================
-// Helper: Immediately sync Purchase Invoice field from database
-// ================================================================
+// =====================================================================
+// CREATED BY
+// =====================================================================
+
+function set_created_by(frm) {
+	if (
+		frm.is_new() &&
+		!frm.doc.created_by
+	) {
+		frm.set_value(
+			"created_by",
+			frappe.session.user
+		);
+	}
+}
+
+
+// =====================================================================
+// TOTAL QTY
+// =====================================================================
+
+function calculate_total_qty(frm) {
+	let total_qty = 0;
+
+	(frm.doc.items || []).forEach((row) => {
+		total_qty += flt(row.qty);
+	});
+
+	/*
+	 * Only update if value actually changed.
+	 */
+	if (
+		flt(frm.doc.custom_total_amount) !==
+		flt(total_qty)
+	) {
+		frm.set_value(
+			"custom_total_amount",
+			total_qty
+		);
+	}
+}
+
+
+// =====================================================================
+// SYNC PURCHASE INVOICE FIELD FROM DATABASE
+// =====================================================================
+
 function sync_purchase_invoice_on_form(frm) {
+
 	if (frm.is_new()) {
 		return;
 	}
 
 	frappe.db
-		.get_value("Gate Pass", frm.doc.name, "purchase_invoice")
+		.get_value(
+			"Gate Pass",
+			frm.doc.name,
+			"purchase_invoice"
+		)
 		.then((r) => {
+
 			const purchase_invoice =
 				r &&
 				r.message &&
@@ -20,10 +70,19 @@ function sync_purchase_invoice_on_form(frm) {
 					? r.message.purchase_invoice
 					: null;
 
-			// Update browser-side document WITHOUT making form dirty
-			if (frm.doc.purchase_invoice !== purchase_invoice) {
-				frm.doc.purchase_invoice = purchase_invoice;
-				frm.refresh_field("purchase_invoice");
+			/*
+			 * Update browser document without requiring Ctrl + R.
+			 */
+			if (
+				frm.doc.purchase_invoice !==
+				purchase_invoice
+			) {
+				frm.doc.purchase_invoice =
+					purchase_invoice;
+
+				frm.refresh_field(
+					"purchase_invoice"
+				);
 			}
 
 			add_purchase_invoice_button(frm);
@@ -31,11 +90,12 @@ function sync_purchase_invoice_on_form(frm) {
 }
 
 
-// ================================================================
-// Helper: Show Purchase Invoice button
-// ================================================================
+// =====================================================================
+// PURCHASE INVOICE BUTTON
+// =====================================================================
+
 function add_purchase_invoice_button(frm) {
-	// Remove old button first to avoid duplicates
+
 	frm.remove_custom_button(
 		__("Purchase Invoice"),
 		__("View")
@@ -47,27 +107,112 @@ function add_purchase_invoice_button(frm) {
 
 	frm.add_custom_button(
 		__("Purchase Invoice"),
-		function () {
+
+		() => {
 			frappe.set_route(
 				"Form",
 				"Purchase Invoice",
 				frm.doc.purchase_invoice
 			);
 		},
+
 		__("View")
 	);
 }
 
 
-// ================================================================
-// Gate Pass
-// ================================================================
+// =====================================================================
+// TRANSPORTER ADDRESS
+// =====================================================================
+
+function fetch_transporter_address(frm) {
+
+	if (!frm.doc.transporter) {
+
+		frm.set_value(
+			"address",
+			""
+		);
+
+		return;
+	}
+
+	frappe.call({
+
+		method:
+			"frappe.contacts.doctype.address.address.get_default_address",
+
+		args: {
+			doctype: "Supplier",
+			name: frm.doc.transporter,
+		},
+
+		callback: function (r) {
+
+			if (!r.message) {
+
+				frm.set_value(
+					"address",
+					""
+				);
+
+				return;
+			}
+
+			frappe.db
+				.get_value(
+					"Address",
+					r.message,
+					[
+						"address_line1",
+						"address_line2",
+						"city",
+						"state",
+						"pincode",
+						"country",
+					]
+				)
+				.then((res) => {
+
+					if (
+						!res ||
+						!res.message
+					) {
+						return;
+					}
+
+					const a = res.message;
+
+					const address_lines = [
+						a.address_line1,
+						a.address_line2,
+						a.city,
+						a.state,
+						a.pincode,
+						a.country,
+					].filter(Boolean);
+
+					frm.set_value(
+						"address",
+						address_lines.join(", ")
+					);
+				});
+		},
+	});
+}
+
+
+// =====================================================================
+// GATE PASS
+// =====================================================================
+
 frappe.ui.form.on("Gate Pass", {
 
 	setup(frm) {
+
 		/*
-		 * Purchase Invoice cancellation is handled automatically
-		 * by Gate Pass Python code.
+		 * Linked Purchase Invoice cancellation is handled by
+		 * gate_pass.py.
 		 */
 		frm.ignore_doctypes_on_cancel_all =
 			frm.ignore_doctypes_on_cancel_all || [];
@@ -84,30 +229,50 @@ frappe.ui.form.on("Gate Pass", {
 	},
 
 
+	onload(frm) {
+
+		// Auto-set document owner/current user.
+		set_created_by(frm);
+
+		// Calculate immediately if rows already exist.
+		if (frm.doc.docstatus === 0) {
+			calculate_total_qty(frm);
+		}
+	},
+
+
 	refresh(frm) {
 
-		// ============================================================
-		// PURCHASE INVOICE FIELD / BUTTON
-		// ============================================================
+		// -------------------------------------------------------------
+		// CREATED BY
+		// -------------------------------------------------------------
+		set_created_by(frm);
 
+
+		// -------------------------------------------------------------
+		// TOTAL QTY
+		// -------------------------------------------------------------
+		if (frm.doc.docstatus === 0) {
+			calculate_total_qty(frm);
+		}
+
+
+		// -------------------------------------------------------------
+		// PURCHASE INVOICE FIELD / BUTTON
+		// -------------------------------------------------------------
 		if (frm.doc.purchase_invoice) {
+
 			add_purchase_invoice_button(frm);
+
 		} else {
-			/*
-			 * Purchase Invoice may have been created by Python
-			 * during save but browser-side document may not yet
-			 * contain the new link.
-			 *
-			 * Fetch it immediately from DB.
-			 */
+
 			sync_purchase_invoice_on_form(frm);
 		}
 
 
-		// ============================================================
+		// -------------------------------------------------------------
 		// CUSTOM CANCEL FLOW
-		// ============================================================
-
+		// -------------------------------------------------------------
 		if (frm.doc.docstatus === 1) {
 
 			frm.savecancel = function (
@@ -122,24 +287,32 @@ frappe.ui.form.on("Gate Pass", {
 				);
 
 				if (frm.doc.purchase_invoice) {
-					message += "<br><br>" + __(
-						"Linked Purchase Invoice {0} will also be cancelled automatically.",
-						[frm.doc.purchase_invoice]
-					);
+
+					message +=
+						"<br><br>" +
+						__(
+							"Linked Purchase Invoice {0} will also be cancelled automatically.",
+							[
+								frm.doc.purchase_invoice,
+							]
+						);
 				}
 
 				frappe.confirm(
+
 					message,
 
 					// YES
 					() => {
 
 						frappe.call({
+
 							method:
 								"pc_production.pc_production.doctype.gate_pass.gate_pass.cancel_gate_pass",
 
 							args: {
-								gate_pass: frm.doc.name,
+								gate_pass:
+									frm.doc.name,
 							},
 
 							freeze: true,
@@ -154,24 +327,26 @@ frappe.ui.form.on("Gate Pass", {
 
 									frappe.show_alert({
 										message: __(
-											"Gate Pass and Purchase Invoice cancelled."
+											"Gate Pass and linked Purchase Invoice cancelled."
 										),
-										indicator: "green",
+										indicator:
+											"green",
 									});
 
-									/*
-									 * Auto reload cancelled Gate Pass.
-									 * User does NOT need manual browser refresh.
-									 */
-									frm.reload_doc().then(() => {
-										if (callback) {
-											callback();
-										}
-									});
+									frm.reload_doc()
+										.then(() => {
+
+											if (
+												callback
+											) {
+												callback();
+											}
+										});
 								}
 							},
 
 							error: function () {
+
 								if (on_error) {
 									on_error();
 								}
@@ -181,6 +356,7 @@ frappe.ui.form.on("Gate Pass", {
 
 					// NO
 					() => {
+
 						if (on_error) {
 							on_error();
 						}
@@ -190,38 +366,22 @@ frappe.ui.form.on("Gate Pass", {
 		}
 
 
-		// ============================================================
+		// -------------------------------------------------------------
 		// CUSTOM DELETE FLOW
-		// ============================================================
-
-		/*
-		 * Default Frappe behaviour after deletion is:
-		 *
-		 *     window.history.back()
-		 *
-		 * We don't want that because previous screen may be PI,
-		 * another Gate Pass, etc.
-		 *
-		 * After successful delete always open:
-		 *
-		 *     Gate Pass List
-		 */
-
-		if (!frm.is_new() && frm.doc.docstatus !== 1) {
+		// -------------------------------------------------------------
+		if (
+			!frm.is_new() &&
+			frm.doc.docstatus !== 1
+		) {
 
 			frm.savetrash = function () {
 
-				// Keep Frappe's standard Delete permission check
-				frm.validate_form_action("Delete");
+				frm.validate_form_action(
+					"Delete"
+				);
 
-				/*
-				 * frappe.model.delete_doc already shows:
-				 *
-				 * "Permanently delete GPxxxxx?"
-				 *
-				 * So no extra confirmation dialog is needed.
-				 */
 				frappe.model.delete_doc(
+
 					"Gate Pass",
 					frm.doc.name,
 
@@ -231,13 +391,10 @@ frappe.ui.form.on("Gate Pass", {
 							message: __(
 								"Gate Pass and linked Purchase Invoice deleted."
 							),
-							indicator: "green",
+							indicator:
+								"green",
 						});
 
-						/*
-						 * IMPORTANT:
-						 * Always go directly to Gate Pass List.
-						 */
 						frappe.set_route(
 							"List",
 							"Gate Pass"
@@ -249,68 +406,116 @@ frappe.ui.form.on("Gate Pass", {
 	},
 
 
-	// ================================================================
+	// =================================================================
+	// VALIDATE
+	// =================================================================
+
+	validate(frm) {
+
+		set_created_by(frm);
+
+		calculate_total_qty(frm);
+
+		if (
+			flt(frm.doc.delivery_charges) < 0
+		) {
+			frappe.throw(
+				__(
+					"Delivery Charges cannot be negative."
+				)
+			);
+		}
+
+		if (
+			flt(frm.doc.delivery_charges) > 0 &&
+			!frm.doc.transporter
+		) {
+			frappe.throw(
+				__(
+					"Transporter is required when Delivery Charges are greater than zero."
+				)
+			);
+		}
+	},
+
+
+	// =================================================================
 	// AFTER SAVE
-	// ================================================================
+	// =================================================================
 
 	after_save(frm) {
 
 		/*
-		 * Python on_update() may create/update Purchase Invoice.
-		 *
-		 * Fetch PI from DB immediately so user does NOT need
-		 * Ctrl+R / manual reload.
+		 * Python may have just created/updated/deleted the Draft PI.
+		 * Refresh the linked PI field immediately.
 		 */
 		sync_purchase_invoice_on_form(frm);
 	},
 
 
-	// ================================================================
+	// =================================================================
 	// TRANSPORTER
-	// ================================================================
+	// =================================================================
 
 	transporter(frm) {
 
-		if (!frm.doc.transporter) {
-			frm.set_value("address", "");
-			return;
+		fetch_transporter_address(frm);
+	},
+
+
+	// =================================================================
+	// DELIVERY CHARGES
+	// =================================================================
+
+	delivery_charges(frm) {
+
+		if (
+			flt(frm.doc.delivery_charges) > 0 &&
+			!frm.doc.transporter
+		) {
+			frappe.show_alert({
+				message: __(
+					"Please select a Transporter for Delivery Charges."
+				),
+				indicator: "orange",
+			});
 		}
+	},
+});
 
-		frappe.call({
-			method:
-				"frappe.contacts.doctype.address.address.get_default_address",
 
-			args: {
-				doctype: "Supplier",
-				name: frm.doc.transporter,
-			},
+// =====================================================================
+// GATE PASS CHILD TABLE
+// =====================================================================
 
-			callback: function (r) {
+frappe.ui.form.on("Gate Pass CT", {
 
-				if (!r.message) {
-					return;
-				}
+	qty(frm, cdt, cdn) {
 
-				frappe.db
-					.get_value(
-						"Address",
-						r.message,
-						"address_line1"
-					)
-					.then((res) => {
+		/*
+		 * Real-time Total Qty calculation.
+		 *
+		 * Example:
+		 * 8 + 5 + 10 = Total Qty 23
+		 */
+		calculate_total_qty(frm);
+	},
 
-						if (
-							res &&
-							res.message &&
-							res.message.address_line1
-						) {
-							frm.set_value(
-								"address",
-								res.message.address_line1
-							);
-						}
-					});
-			},
-		});
+
+	items_add(frm, cdt, cdn) {
+
+		calculate_total_qty(frm);
+	},
+
+
+	items_remove(frm, cdt, cdn) {
+
+		calculate_total_qty(frm);
+	},
+
+
+	items_move(frm, cdt, cdn) {
+
+		calculate_total_qty(frm);
 	},
 });

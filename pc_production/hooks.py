@@ -159,6 +159,26 @@ fixtures = [
             ],
         ],
     },
+
+    # ------------------------------------------------------------
+    # Purchase Invoice -> Gate Pass reference
+    # ------------------------------------------------------------
+    {
+        "dt": "Custom Field",
+        "filters": [
+            [
+                "dt",
+                "=",
+                "Purchase Invoice",
+            ],
+            [
+                "fieldname",
+                "=",
+                "custom_gate_pass",
+            ],
+        ],
+    },
+
     {
         "dt": "Property Setter",
         "filters": [

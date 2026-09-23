@@ -685,6 +685,45 @@ def ensure_delivery_trip_print_format():
     print_format.html = html
     print_format.save(ignore_permissions=True)
 
+def ensure_gate_pass_default_print_format():
+    property_name = "Gate Pass-main-default_print_format"
+
+    values = {
+        "doc_type": "Gate Pass",
+        "doctype_or_field": "DocType",
+        "field_name": None,
+        "property": "default_print_format",
+        "property_type": "Data",
+        "value": GATE_PASS_PRINT_FORMAT_NAME,
+    }
+
+    if frappe.db.exists(
+        "Property Setter",
+        property_name,
+    ):
+        frappe.db.set_value(
+            "Property Setter",
+            property_name,
+            values,
+            update_modified=False,
+        )
+
+    else:
+        property_setter = frappe.new_doc(
+            "Property Setter"
+        )
+
+        property_setter.update(values)
+
+        property_setter.name = property_name
+
+        property_setter.insert(
+            ignore_permissions=True
+        )
+
+    frappe.clear_cache(
+        doctype="Gate Pass"
+    )
 
 def ensure_gate_pass_print_format():
     html_path = frappe.get_app_path(
@@ -693,12 +732,27 @@ def ensure_gate_pass_print_format():
         "gate_pass_two_copy.html",
     )
 
-    html = Path(html_path).read_text(encoding="utf-8")
-    if frappe.db.exists("Print Format", GATE_PASS_PRINT_FORMAT_NAME):
-        print_format = frappe.get_doc("Print Format", GATE_PASS_PRINT_FORMAT_NAME)
+    html = Path(
+        html_path
+    ).read_text(
+        encoding="utf-8"
+    )
+
+    if frappe.db.exists(
+        "Print Format",
+        GATE_PASS_PRINT_FORMAT_NAME,
+    ):
+        print_format = frappe.get_doc(
+            "Print Format",
+            GATE_PASS_PRINT_FORMAT_NAME,
+        )
     else:
-        print_format = frappe.new_doc("Print Format")
-        print_format.name = GATE_PASS_PRINT_FORMAT_NAME
+        print_format = frappe.new_doc(
+            "Print Format"
+        )
+        print_format.name = (
+            GATE_PASS_PRINT_FORMAT_NAME
+        )
 
     print_format.doc_type = "Gate Pass"
     print_format.print_format_type = "Jinja"
@@ -706,4 +760,51 @@ def ensure_gate_pass_print_format():
     print_format.standard = "No"
     print_format.disabled = 0
     print_format.html = html
-    print_format.save(ignore_permissions=True)
+
+    print_format.save(
+        ignore_permissions=True
+    )
+
+    # Make Gate Pass Two Copy the default print format
+    ensure_gate_pass_default_print_format()
+    html_path = frappe.get_app_path(
+        "pc_production",
+        "print_formats",
+        "gate_pass_two_copy.html",
+    )
+
+    html = Path(
+        html_path
+    ).read_text(
+        encoding="utf-8"
+    )
+
+    if frappe.db.exists(
+        "Print Format",
+        GATE_PASS_PRINT_FORMAT_NAME,
+    ):
+        print_format = frappe.get_doc(
+            "Print Format",
+            GATE_PASS_PRINT_FORMAT_NAME,
+        )
+    else:
+        print_format = frappe.new_doc(
+            "Print Format"
+        )
+        print_format.name = (
+            GATE_PASS_PRINT_FORMAT_NAME
+        )
+
+    print_format.doc_type = "Gate Pass"
+    print_format.print_format_type = "Jinja"
+    print_format.custom_format = 1
+    print_format.standard = "No"
+    print_format.disabled = 0
+    print_format.html = html
+
+    print_format.save(
+        ignore_permissions=True
+    )
+
+    # Make Gate Pass Two Copy the default print format
+    ensure_gate_pass_default_print_format()

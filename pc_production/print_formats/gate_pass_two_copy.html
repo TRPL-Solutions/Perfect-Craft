@@ -1,63 +1,619 @@
 <style>
-    @page { size: A4 landscape; margin: 5mm; }
-    * { box-sizing: border-box; }
-    #gate-pass-print.sheet { display: flex !important; font-family: Arial, sans-serif !important; font-size: 7px !important; line-height: 1.15 !important; width: 100% !important; }
-    #gate-pass-print.sheet * { font-family: Arial, sans-serif !important; }
-    #gate-pass-print .copy { border-right: 1px dotted #777 !important; padding: 0 5px !important; width: 50% !important; }
-    .copy:last-child { border-right: 0; }
-    #gate-pass-print .company { font-size: 13px !important; font-weight: 700 !important; line-height: 1.1 !important; text-align: center !important; text-decoration: underline !important; }
-    #gate-pass-print .site { font-size: 11px !important; font-weight: 700 !important; line-height: 1.1 !important; margin: 3px 0 5px !important; text-align: center !important; }
-    #gate-pass-print .title { background: #c7c7c7 !important; border-bottom: 1px solid #222 !important; border-top: 1px solid #222 !important; font-size: 13px !important; line-height: 1.1 !important; margin-bottom: 5px !important; padding: 3px !important; text-align: center !important; text-decoration: underline !important; }
-    #gate-pass-print .details, #gate-pass-print .items, #gate-pass-print .signatures { border-collapse: collapse !important; width: 100% !important; }
-    #gate-pass-print .details { line-height: 1.15 !important; table-layout: fixed !important; }
-    #gate-pass-print .details td { font-size: 7px !important; padding: 1px 3px !important; vertical-align: top !important; }
-    #gate-pass-print .label { font-weight: 700 !important; white-space: nowrap !important; width: 15% !important; }
-    #gate-pass-print .value { width: 35% !important; }
-    #gate-pass-print .items { border: 1px solid #222 !important; margin-top: 6px !important; table-layout: fixed !important; }
-    #gate-pass-print .items th, #gate-pass-print .items td { border: 1px solid #555 !important; font-size: 7px !important; line-height: 1.1 !important; padding: 3px 4px !important; }
-    #gate-pass-print .items th { height: 28px !important; text-align: center !important; }
-    #gate-pass-print .items td { height: 19px !important; }
-    #gate-pass-print .serial { text-align: center !important; width: 7% !important; }
-    #gate-pass-print .description { width: 50% !important; }
-    #gate-pass-print .qty { text-align: center !important; width: 17% !important; }
-    #gate-pass-print .remarks { width: 26% !important; }
-    #gate-pass-print .blank-row td { height: 245px !important; }
-    #gate-pass-print .total-row td { font-weight: 700 !important; height: 25px !important; text-align: right !important; }
-    #gate-pass-print .amount-words { font-size: 7px !important; line-height: 1.1 !important; margin-top: 4px !important; text-transform: uppercase !important; }
-    #gate-pass-print .signatures { margin-top: 48px !important; }
-    #gate-pass-print .signatures td { font-size: 7px !important; padding: 0 4px !important; text-align: center !important; width: 33.33% !important; }
-    #gate-pass-print .signature-line { border-top: 1px solid #222 !important; display: block !important; padding-top: 3px !important; }
+    @page {
+        size: A4 landscape;
+        margin: 5mm;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    #gate-pass-print.sheet {
+        display: flex !important;
+        width: 100% !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 7px !important;
+        line-height: 1.15 !important;
+    }
+
+    #gate-pass-print.sheet * {
+        font-family: Arial, sans-serif !important;
+    }
+
+    /* ============================================================
+       TWO COPIES
+       ============================================================ */
+
+    #gate-pass-print .copy {
+        width: 50% !important;
+        padding: 0 5px !important;
+        border-right: 1px dotted #777 !important;
+    }
+
+    #gate-pass-print .copy:last-child {
+        border-right: 0 !important;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+
+    #gate-pass-print .company {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+        text-decoration: underline !important;
+    }
+
+    #gate-pass-print .site {
+        margin: 3px 0 5px !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+    }
+
+    #gate-pass-print .title {
+        margin-bottom: 5px !important;
+        padding: 3px !important;
+        background: #c7c7c7 !important;
+        border-top: 1px solid #222 !important;
+        border-bottom: 1px solid #222 !important;
+        font-size: 13px !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+        text-decoration: underline !important;
+    }
+
+    /* ============================================================
+       DETAILS
+       ============================================================ */
+
+    #gate-pass-print .details,
+    #gate-pass-print .items,
+    #gate-pass-print .signatures {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    #gate-pass-print .details {
+        table-layout: fixed !important;
+        line-height: 1.15 !important;
+    }
+
+    #gate-pass-print .details td {
+        padding: 1px 3px !important;
+        font-size: 7px !important;
+        vertical-align: top !important;
+    }
+
+    #gate-pass-print .label {
+        width: 15% !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+    }
+
+    #gate-pass-print .value {
+        width: 35% !important;
+    }
+
+    /* ============================================================
+       ITEMS TABLE
+       ============================================================ */
+
+    #gate-pass-print .items {
+        margin-top: 6px !important;
+        border: 1px solid #222 !important;
+        table-layout: fixed !important;
+    }
+
+    #gate-pass-print .items th,
+    #gate-pass-print .items td {
+        border: 1px solid #555 !important;
+        padding: 3px 4px !important;
+        font-size: 7px !important;
+        line-height: 1.1 !important;
+        vertical-align: middle !important;
+    }
+
+    #gate-pass-print .items th {
+        height: 28px !important;
+        font-weight: 400 !important;
+        text-align: center !important;
+    }
+
+    #gate-pass-print .items td {
+        height: 19px !important;
+    }
+
+    #gate-pass-print .serial {
+        width: 7% !important;
+        text-align: center !important;
+    }
+
+    #gate-pass-print .description {
+        width: 50% !important;
+    }
+
+    #gate-pass-print .qty {
+        width: 17% !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+    }
+
+    #gate-pass-print .remarks {
+        width: 26% !important;
+    }
+
+    /*
+     * Keeps the overall layout similar to the client's
+     * reference Gate Pass.
+     */
+    #gate-pass-print .blank-row td {
+        height: 235px !important;
+    }
+
+    #gate-pass-print .total-row td {
+        height: 25px !important;
+        font-weight: 700 !important;
+    }
+
+    #gate-pass-print .total-label {
+        text-align: right !important;
+    }
+
+    #gate-pass-print .total-value {
+        text-align: right !important;
+    }
+
+    /* ============================================================
+       TRANSPORT / DELIVERY CHARGES
+       ============================================================ */
+
+    #gate-pass-print .transport-summary {
+        width: 100% !important;
+        margin-top: 5px !important;
+        border-collapse: collapse !important;
+        border: 1px solid #555 !important;
+    }
+
+    #gate-pass-print .transport-summary td {
+        padding: 3px 5px !important;
+        border: 1px solid #555 !important;
+        font-size: 7px !important;
+        line-height: 1.2 !important;
+    }
+
+    #gate-pass-print .transport-label {
+        width: 35% !important;
+        font-weight: 700 !important;
+    }
+
+    #gate-pass-print .transport-value {
+        text-align: right !important;
+    }
+
+    #gate-pass-print .amount-words {
+        margin-top: 3px !important;
+        font-size: 7px !important;
+        line-height: 1.2 !important;
+        text-transform: uppercase !important;
+    }
+
+    #gate-pass-print .print-remarks {
+        margin-top: 4px !important;
+        font-size: 7px !important;
+        line-height: 1.2 !important;
+    }
+
+    /* ============================================================
+       SIGNATURES
+       ============================================================ */
+
+    #gate-pass-print .signatures {
+        margin-top: 42px !important;
+    }
+
+    #gate-pass-print .signatures td {
+        width: 33.33% !important;
+        padding: 0 5px !important;
+        font-size: 7px !important;
+        text-align: center !important;
+    }
+
+    #gate-pass-print .signature-line {
+        display: block !important;
+        padding-top: 3px !important;
+        border-top: 1px solid #222 !important;
+    }
 </style>
 
+
 {% set p = get_gate_pass_print_context(doc) %}
+
+
 <div id="gate-pass-print" class="sheet">
+
     {% for copy in ["INTERNAL COPY", "DRIVER COPY"] %}
+
     <div class="copy">
-        <div class="company">{{ p.company or "Perfect Craft 2025-2026" }}</div>
-        <div class="site">SITE, Karachi</div>
-        <div class="title">GATE PASS</div>
+
+        <!-- =====================================================
+             HEADER
+             ===================================================== -->
+
+        <div class="company">
+            Perfect Craft 2025-2026
+        </div>
+
+        <div class="site">
+            SITE, Karachi
+        </div>
+
+        <div class="title">
+            GATE PASS
+        </div>
+
+
+        <!-- =====================================================
+             GATE PASS DETAILS
+             ===================================================== -->
+
         <table class="details">
-            <tr><td class="label">G.P No. :</td><td class="value">{{ p.gate_pass_no }}</td><td class="label">Date :</td><td class="value">{{ p.date }}</td></tr>
-            <tr><td class="label">Gate Pass For :</td><td class="value">{{ p.gate_pass_for }}</td><td class="label">Time :</td><td class="value">{{ p.time }}</td></tr>
-            <tr><td class="label">Type :</td><td class="value">{{ p.type }}</td><td class="label">Return :</td><td class="value">{{ p.return_type }}</td></tr>
-            <tr><td class="label">Gate Pass :</td><td class="value">{{ p.gate_pass_type }}</td><td class="label">Verified By :</td><td class="value">{{ p.verified_by }}</td></tr>
-            <tr><td class="label">M/s. :</td><td colspan="3">{{ p.supplier }}</td></tr>
-            <tr><td class="label">Transporter :</td><td colspan="3">{{ p.transporter }}</td></tr>
-            <tr><td class="label">Address :</td><td colspan="3">{{ p.address }}</td></tr>
-            <tr><td class="label">Driver Name :</td><td>{{ p.driver_name }}</td><td class="label">Vehicle No. :</td><td>{{ p.vehicle }}</td></tr>
-            <tr><td class="label">Warehouse :</td><td>{{ p.warehouse }}</td><td class="label">S/Person :</td><td>{{ p.handover_to or p.received_by }}</td></tr>
+
+            <tr>
+                <td class="label">
+                    G.P No. :
+                </td>
+
+                <td class="value">
+                    {{ p.gate_pass_no or "" }}
+                </td>
+
+                <td class="label">
+                    Date :
+                </td>
+
+                <td class="value">
+                    {{ p.date or "" }}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td class="label">
+                    Gate Pass For :
+                </td>
+
+                <td class="value">
+                    {{ p.gate_pass_for or "" }}
+                </td>
+
+                <td class="label">
+                    Time :
+                </td>
+
+                <td class="value">
+                    {{ p.time or "" }}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td class="label">
+                    Type :
+                </td>
+
+                <td class="value">
+                    {{ p.type or "" }}
+                </td>
+
+                <td class="label">
+                    Return :
+                </td>
+
+                <td class="value">
+                    {{ p.return_type or "" }}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td class="label">
+                    Gate Pass :
+                </td>
+
+                <td class="value">
+                    {{ p.gate_pass_type or "" }}
+                </td>
+
+                <td class="label">
+                    Verified By :
+                </td>
+
+                <td class="value">
+                    {{ p.verified_by or "" }}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td class="label">
+                    M/s. :
+                </td>
+
+                <td colspan="3">
+                    {{ p.supplier or "" }}
+                </td>
+            </tr>
+
+
+            {% if p.transporter %}
+
+            <tr>
+                <td class="label">
+                    Transporter :
+                </td>
+
+                <td colspan="3">
+                    {{ p.transporter }}
+                </td>
+            </tr>
+
+            {% endif %}
+
+
+            {% if p.address %}
+
+            <tr>
+                <td class="label">
+                    Address :
+                </td>
+
+                <td colspan="3">
+                    {{ p.address }}
+                </td>
+            </tr>
+
+            {% endif %}
+
+
+            <tr>
+                <td class="label">
+                    Driver Name :
+                </td>
+
+                <td class="value">
+                    {{ p.driver_name or "" }}
+                </td>
+
+                <td class="label">
+                    Vehicle No. :
+                </td>
+
+                <td class="value">
+                    {{ p.vehicle or "" }}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td class="label">
+                    Warehouse :
+                </td>
+
+                <td class="value">
+                    {{ p.warehouse or "" }}
+                </td>
+
+                <td class="label">
+                    S/Person :
+                </td>
+
+                <td class="value">
+                    {{ p.handover_to or p.received_by or "" }}
+                </td>
+            </tr>
+
         </table>
+
+
+        <!-- =====================================================
+             ITEMS
+             ===================================================== -->
+
         <table class="items">
-            <thead><tr><th class="serial">S #</th><th class="description">Description of Goods</th><th class="qty">Quantity</th><th class="remarks">Remarks</th></tr></thead>
+
+            <thead>
+
+                <tr>
+
+                    <th class="serial">
+                        S #
+                    </th>
+
+                    <th class="description">
+                        Description of Goods
+                    </th>
+
+                    <th class="qty">
+                        Quantity
+                    </th>
+
+                    <th class="remarks">
+                        Remarks
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
             <tbody>
-                {% for row in p.rows %}<tr><td class="serial">{{ loop.index }}</td><td>{{ row.description }}{% if row.item_code %} ({{ row.item_code }}){% endif %}</td><td class="qty">{{ row.qty }}{% if row.uom %} {{ row.uom }}{% endif %}</td><td>{{ row.remarks or row.purpose }}</td></tr>{% endfor %}
-                <tr class="blank-row"><td></td><td></td><td></td><td></td></tr>
-                <tr class="total-row"><td></td><td>Total :</td><td>{{ p.total_qty }}</td><td></td></tr>
+
+                {% for row in p.rows %}
+
+                <tr>
+
+                    <td class="serial">
+                        {{ loop.index }}
+                    </td>
+
+                    <td class="description">
+                        {{ row.description or "" }}
+                    </td>
+
+                    <td class="qty">
+
+                        {{ row.qty or "" }}
+
+                        {% if row.uom %}
+                            {{ row.uom }}
+                        {% endif %}
+
+                    </td>
+
+                    <td class="remarks">
+                        {{ row.remarks or row.purpose or "" }}
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+
+                <!-- Blank area like reference Gate Pass -->
+
+                <tr class="blank-row">
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+
+
+                <!-- Total Qty -->
+
+                <tr class="total-row">
+
+                    <td></td>
+
+                    <td class="total-label">
+                        Total :
+                    </td>
+
+                    <td class="total-value">
+                        {{ p.total_qty or "0" }}
+                    </td>
+
+                    <td></td>
+
+                </tr>
+
             </tbody>
+
         </table>
-        {% if p.delivery_charges != "0.00" %}<div class="amount-words">DELIVERY CHARGES: {{ p.delivery_charges }} | TOTAL AMOUNT: {{ p.total_amount }} | RUPEES: {{ p.amount_in_words }} ONLY.</div>{% endif %}
-        <div style="margin-top: 3px;">Remarks: {{ p.remarks }}</div>
-        <table class="signatures"><tr><td><span class="signature-line">Prepared By</span></td><td><span class="signature-line">Authorized Signature</span></td><td><span class="signature-line">Receiver's Signature</span></td></tr></table>
+
+
+        <!-- =====================================================
+             DELIVERY CHARGES
+
+             Only displayed when Delivery Charges > 0
+             ===================================================== -->
+
+        {% if p.delivery_charges and p.delivery_charges != "0.00" %}
+
+        <table class="transport-summary">
+
+            <tr>
+
+                <td class="transport-label">
+                    Delivery Charges :
+                </td>
+
+                <td class="transport-value">
+                    Rs. {{ p.delivery_charges }}
+                </td>
+
+            </tr>
+
+        </table>
+
+
+        {% if p.amount_in_words %}
+
+        <div class="amount-words">
+
+            Rupees:
+            {{ p.amount_in_words }}
+
+        </div>
+
+        {% endif %}
+
+        {% endif %}
+
+
+        <!-- =====================================================
+             REMARKS
+             ===================================================== -->
+
+        {% if p.remarks %}
+
+        <div class="print-remarks">
+
+            <strong>
+                Remarks:
+            </strong>
+
+            {{ p.remarks }}
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- =====================================================
+             SIGNATURES
+             ===================================================== -->
+
+        <table class="signatures">
+
+            <tr>
+
+                <td>
+
+                    <span class="signature-line">
+                        Prepared By
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    <span class="signature-line">
+                        Authorized Signature
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    <span class="signature-line">
+                        Receiver's Signature
+                    </span>
+
+                </td>
+
+            </tr>
+
+        </table>
+
     </div>
+
     {% endfor %}
+
 </div>
