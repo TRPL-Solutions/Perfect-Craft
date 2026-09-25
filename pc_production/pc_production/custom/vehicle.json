@@ -1,0 +1,62 @@
+{
+    "custom_fields": [],
+    "doctype": "Vehicle",
+    "property_setters": [
+        {
+            "doc_type": "Vehicle",
+            "doctype_or_field": "DocField",
+            "field_name": "make",
+            "idx": 0,
+            "module": "PC Production",
+            "name": "Vehicle-make-reqd",
+            "property": "reqd",
+            "property_type": "Check",
+            "value": "0"
+        },
+        {
+            "doc_type": "Vehicle",
+            "doctype_or_field": "DocField",
+            "field_name": "model",
+            "idx": 0,
+            "module": "PC Production",
+            "name": "Vehicle-model-reqd",
+            "property": "reqd",
+            "property_type": "Check",
+            "value": "0"
+        },
+        {
+            "doc_type": "Vehicle",
+            "doctype_or_field": "DocField",
+            "field_name": "last_odometer",
+            "idx": 0,
+            "module": "PC Production",
+            "name": "Vehicle-last_odometer-reqd",
+            "property": "reqd",
+            "property_type": "Check",
+            "value": "0"
+        },
+        {
+            "doc_type": "Vehicle",
+            "doctype_or_field": "DocField",
+            "field_name": "fuel_type",
+            "idx": 0,
+            "module": "PC Production",
+            "name": "Vehicle-fuel_type-reqd",
+            "property": "reqd",
+            "property_type": "Check",
+            "value": "0"
+        },
+        {
+            "doc_type": "Vehicle",
+            "doctype_or_field": "DocField",
+            "field_name": "uom",
+            "idx": 0,
+            "module": "PC Production",
+            "name": "Vehicle-uom-reqd",
+            "property": "reqd",
+            "property_type": "Check",
+            "value": "0"
+        }
+    ],
+    "sync_on_migrate": 1
+}
