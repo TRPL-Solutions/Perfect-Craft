@@ -345,6 +345,8 @@ doctype_js = {
 
     "Delivery Trip":
         "pc_production/doctype/delivery_trip/delivery_trip.js",
+    "Work Order":
+        "pc_production/doctype/work_order/work_order.js",
 }
 
 
@@ -372,6 +374,10 @@ doc_events = {
             "pc_production.delivery_trip.delete_purchase_invoice",
     },
 
+    "Work Order": {
+        "before_validate":
+            "pc_production.pc_production.doctype.work_order.work_order.set_work_order_warehouses",
+    },
 
     "Stock Entry": {
         "before_validate":
