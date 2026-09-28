@@ -35,7 +35,8 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Actual Expense",
-   "reqd": 1
+   "reqd": 0,
+   "read_only": 1
   },
   {
    "fieldname": "expected_per_qty_amount",
