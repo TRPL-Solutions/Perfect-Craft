@@ -658,6 +658,7 @@ def ensure_sales_order_print_format():
     print_format.save(
         ignore_permissions=True
     )
+    ensure_default_print_format("Sales Order", PRINT_FORMAT_NAME)
 
 
 def ensure_delivery_trip_print_format():
@@ -684,17 +685,18 @@ def ensure_delivery_trip_print_format():
     print_format.disabled = 0
     print_format.html = html
     print_format.save(ignore_permissions=True)
+    ensure_default_print_format("Delivery Trip", DELIVERY_TRIP_PRINT_FORMAT_NAME)
 
-def ensure_gate_pass_default_print_format():
-    property_name = "Gate Pass-main-default_print_format"
+def ensure_default_print_format(doc_type, print_format_name):
+    property_name = f"{doc_type}-main-default_print_format"
 
     values = {
-        "doc_type": "Gate Pass",
+        "doc_type": doc_type,
         "doctype_or_field": "DocType",
         "field_name": None,
         "property": "default_print_format",
         "property_type": "Data",
-        "value": GATE_PASS_PRINT_FORMAT_NAME,
+        "value": print_format_name,
     }
 
     if frappe.db.exists(
@@ -721,9 +723,11 @@ def ensure_gate_pass_default_print_format():
             ignore_permissions=True
         )
 
-    frappe.clear_cache(
-        doctype="Gate Pass"
-    )
+    frappe.clear_cache(doctype=doc_type)
+
+
+def ensure_gate_pass_default_print_format():
+    ensure_default_print_format("Gate Pass", GATE_PASS_PRINT_FORMAT_NAME)
 
 def ensure_gate_pass_print_format():
     html_path = frappe.get_app_path(

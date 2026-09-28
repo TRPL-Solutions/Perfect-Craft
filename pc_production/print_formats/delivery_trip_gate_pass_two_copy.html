@@ -1,68 +1,467 @@
+{% set p = get_delivery_trip_print_context(doc) %}
+
 <style>
-    @page { size: A4 landscape; margin: 5mm; }
-    * { box-sizing: border-box; }
-    .gate-pass-sheet { display: flex; font-family: Arial, sans-serif; font-size: 8px; width: 100%; }
-    .gate-pass-copy { border-right: 1px dotted #777; padding: 0 5px; width: 50%; }
-    .gate-pass-copy:last-child { border-right: 0; }
-    .company { font-size: 13px; font-weight: 700; text-align: center; text-decoration: underline; }
-    .site { font-size: 11px; font-weight: 700; margin: 3px 0 5px; text-align: center; }
-    .gate-pass-heading { background: #ddd; border-bottom: 1px solid #222; border-top: 1px solid #222; font-size: 13px; margin-bottom: 5px; padding: 3px; text-align: center; text-decoration: underline; }
-    .details { border-collapse: collapse; line-height: 1.25; width: 100%; }
-    .details td { padding: 1px 3px; vertical-align: top; }
-    .label { font-weight: 700; white-space: nowrap; width: 15%; }
-    .value { width: 35%; }
-    .goods { border: 1px solid #222; border-collapse: collapse; margin-top: 6px; table-layout: fixed; width: 100%; }
-    .goods th, .goods td { border: 1px solid #555; padding: 3px 4px; }
-    .goods th { font-size: 7px; height: 28px; text-align: center; }
-    .goods td { height: 19px; }
-    .goods .serial { text-align: center; width: 7%; }
-    .goods .description { width: 50%; }
-    .goods .quantity { text-align: center; width: 17%; }
-    .goods .remarks { width: 26%; }
-    .goods .blank-row td { height: 245px; }
-    .total-row td { font-weight: 700; height: 25px; text-align: right; }
-    .signatures { margin-top: 66px; width: 100%; }
-    .signatures td { padding: 0 4px; text-align: center; width: 33.33%; }
-    .signature-line { border-top: 1px solid #222; display: block; padding-top: 3px; }
+    @page {
+        size: A4 landscape;
+        margin: 2.5mm;
+    }
+
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .print-format {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    #pc-gate-pass {
+        width: 100%;
+        display: flex;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #000;
+        font-size: 7px;
+        line-height: 1.25;
+    }
+
+    #pc-gate-pass * {
+        box-sizing: border-box;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #pc-gate-pass .copy {
+        width: 50%;
+        min-height: 198mm;
+        padding: 1.5mm 2.3mm;
+        position: relative;
+    }
+
+    #pc-gate-pass .copy:first-child {
+        border-right: 1px dotted #777;
+    }
+
+    .pc-company {
+        text-align: center;
+        margin-top: 0;
+    }
+
+    .pc-company-name {
+        display: inline-block;
+        font-size: 15px;
+        font-weight: 700;
+        border-bottom: 2px solid #000;
+        line-height: 1.05;
+        padding-bottom: 1px;
+    }
+
+    .pc-site {
+        margin-top: 3px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .pc-header-line {
+        border-top: 1px solid #000;
+        margin-top: 7px;
+    }
+
+    .pc-title {
+        background: #c8c8c8;
+        border-bottom: 1px solid #000;
+        text-align: center;
+        font-size: 15px;
+        line-height: 22px;
+        height: 22px;
+        margin-bottom: 5px;
+    }
+
+    .pc-title span {
+        border-bottom: 1px solid #000;
+    }
+
+    .details {
+        width: 100%;
+        font-size: 7.5px;
+        margin-bottom: 5px;
+    }
+
+    .details-row {
+        display: flex;
+        min-height: 15px;
+        align-items: flex-start;
+    }
+
+    .details-left {
+        width: 73%;
+        display: flex;
+    }
+
+    .details-right {
+        width: 27%;
+        display: flex;
+    }
+
+    .label {
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .label-left {
+        width: 101px;
+        flex: 0 0 101px;
+    }
+
+    .label-right {
+        width: 56px;
+        flex: 0 0 56px;
+    }
+
+    .value {
+        flex: 1;
+        min-width: 0;
+        padding-left: 2px;
+    }
+
+    .split-row {
+        display: flex;
+        width: 100%;
+    }
+
+    .split-row .main-left {
+        width: 67%;
+        display: flex;
+    }
+
+    .split-row .main-right {
+        width: 33%;
+        display: flex;
+    }
+
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 6px;
+        margin-top: 2px;
+    }
+
+    .items-table th,
+    .items-table td {
+        border: 1px solid #000;
+        padding: 2px 3px;
+        vertical-align: middle;
+    }
+
+    .items-table th {
+        height: 34px;
+        font-weight: 700;
+        text-align: center;
+        font-size: 5.6px;
+    }
+
+    .items-table .col-sr {
+        width: 7%;
+        text-align: center;
+    }
+
+    .items-table .col-desc {
+        width: 48%;
+    }
+
+    .items-table .col-qty {
+        width: 16%;
+        text-align: center;
+    }
+
+    .items-table .col-rem {
+        width: 29%;
+    }
+
+    .items-table .data-row td {
+        height: 20px;
+    }
+
+    .items-table .qty-value {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+
+    .items-table .filler td {
+        height: 83mm;
+        vertical-align: top;
+    }
+
+    .items-table .total-row td {
+        height: 29px;
+    }
+
+    .total-label {
+        text-align: right;
+        font-weight: 700;
+    }
+
+    .total-value {
+        text-align: center;
+    }
+
+    .total-value span {
+        display: inline-block;
+        min-width: 35px;
+        border-top: 1px solid #000;
+        border-bottom: 1px solid #000;
+        padding: 2px 4px;
+    }
+
+    .signatures {
+        position: absolute;
+        left: 4mm;
+        right: 4mm;
+        bottom: 8mm;
+        display: flex;
+        justify-content: space-between;
+        gap: 7mm;
+    }
+
+    .signature {
+        width: 31%;
+        text-align: center;
+        font-size: 6px;
+        font-weight: 700;
+    }
+
+    .signature-line {
+        border-top: 1px solid #000;
+        padding-top: 4px;
+    }
 </style>
 
-{% set print_data = get_delivery_trip_print_context(doc) %}
-<div class="gate-pass-sheet">
-    {% for copy in ["INTERNAL COPY", "DRIVER COPY"] %}
-    <div class="gate-pass-copy">
-        <div class="company">{{ print_data.company or "Perfect Craft 2025-2026" }}</div>
-        <div class="site">SITE, Karachi</div>
-        <div class="gate-pass-heading">GATE PASS</div>
-        <table class="details">
-            <tr>
-                <td class="label">G.P No. :</td><td class="value">{{ print_data.gate_pass_no }}</td>
-                <td class="label">Date :</td><td class="value">{{ print_data.date }}</td>
-            </tr>
-            <tr>
-                <td class="label">Order No. :</td><td class="value">{{ print_data.order_no }}</td>
-                <td class="label">Time :</td><td class="value">{{ print_data.time }}</td>
-            </tr>
-            <tr><td class="label">M/s. :</td><td colspan="3">{{ print_data.supplier_name or print_data.transporter }}</td></tr>
-            <tr><td class="label">Address :</td><td colspan="3">{{ print_data.address }}</td></tr>
-            <tr><td class="label">Transporter :</td><td colspan="3">{{ print_data.transporter }}</td></tr>
-            <tr>
-                <td class="label">Driver Name :</td><td>{{ print_data.driver_name }}</td>
-                <td class="label">Vehicle No. :</td><td>{{ print_data.vehicle }}</td>
-            </tr>
-        </table>
-        <table class="goods">
-            <thead><tr><th class="serial">S #</th><th class="description">Description of Goods</th><th class="quantity">Quantity</th><th class="remarks">Remarks</th></tr></thead>
+<div id="pc-gate-pass">
+
+    {% for copy_no in [1, 2] %}
+
+    <div class="copy">
+
+        <div class="pc-company">
+            <div class="pc-company-name">
+                Perfect Craft 2025-2026
+            </div>
+
+            <div class="pc-site">
+                SITE, Karachi
+            </div>
+        </div>
+
+        <div class="pc-header-line"></div>
+
+        <div class="pc-title">
+            <span>GATE PASS</span>
+        </div>
+
+        <div class="details">
+
+            <div class="details-row">
+                <div class="details-left">
+                    <div class="label label-left">
+                        G.P No. :
+                    </div>
+                    <div class="value">
+                        {{ p.gate_pass_no or "" }}
+                    </div>
+                </div>
+
+                <div class="details-right">
+                    <div class="label label-right">
+                        Date :
+                    </div>
+                    <div class="value">
+                        {{ p.date or "" }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-row">
+                <div class="details-left">
+                    <div class="label label-left">
+                        Order No. :
+                    </div>
+                    <div class="value">
+                        {{ p.order_no or "" }}
+                    </div>
+                </div>
+
+                <div class="details-right">
+                    <div class="label label-right">
+                        Time :
+                    </div>
+                    <div class="value">
+                        {{ p.time or "" }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-row">
+                <div class="label label-left">
+                    M/s. :
+                </div>
+                <div class="value">
+                    {{ p.customer or "" }}
+                </div>
+            </div>
+
+            <div class="details-row">
+                <div class="label label-left">
+                    Address :
+                </div>
+                <div class="value">
+                    {{ p.address or "" }}
+                </div>
+            </div>
+
+            <div class="split-row">
+                <div class="main-left">
+                    <div class="label label-left">
+                        Region :
+                    </div>
+                    <div class="value">
+                        {{ p.region or "" }}
+                    </div>
+                </div>
+
+                <div class="main-right">
+                    <div class="label" style="width:42px;">
+                        City :
+                    </div>
+                    <div class="value">
+                        {{ p.city or "" }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="split-row">
+                <div class="main-left">
+                    <div class="label label-left">
+                        Driver Name :
+                    </div>
+                    <div class="value">
+                        {{ p.driver_name or "" }}
+                    </div>
+                </div>
+
+                <div class="main-right">
+                    <div class="label" style="width:65px;">
+                        Vehicle No. :
+                    </div>
+                    <div class="value">
+                        {{ p.vehicle or "" }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-row">
+                <div class="label label-left">
+                    S/Person :
+                </div>
+                <div class="value">
+                    {{ p.sales_person or "" }}
+                </div>
+            </div>
+
+        </div>
+
+        <table class="items-table">
+
+            <thead>
+                <tr>
+                    <th class="col-sr">S #</th>
+                    <th class="col-desc">Description of Goods</th>
+                    <th class="col-qty">Quantity</th>
+                    <th class="col-rem">Remarks</th>
+                </tr>
+            </thead>
+
             <tbody>
-                {% for row in print_data.rows %}
-                <tr><td class="serial">{{ loop.index }}</td><td>{{ row.description }}</td><td class="quantity">{{ row.qty }} {{ row.uom }}</td><td>{{ row.remarks }}</td></tr>
+
+                {% for row in p.rows %}
+
+                <tr class="data-row">
+                    <td class="col-sr">
+                        {{ loop.index }}
+                    </td>
+
+                    <td class="col-desc">
+                        {{ row.description or "" }}
+                    </td>
+
+                    <td class="col-qty">
+                        <div class="qty-value">
+                            <span>{{ row.qty or "" }}</span>
+                            <span>{{ row.uom or "" }}</span>
+                        </div>
+                    </td>
+
+                    <td class="col-rem">
+                        {{ row.remarks or "-" }}
+                    </td>
+                </tr>
+
                 {% endfor %}
-                <tr class="blank-row"><td></td><td></td><td></td><td></td></tr>
-                <tr class="total-row"><td></td><td>Total :</td><td>{{ print_data.total_qty }}</td><td></td></tr>
+
+                <tr class="filler">
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+
+                <tr class="total-row">
+                    <td></td>
+
+                    <td class="total-label">
+                        Total :
+                    </td>
+
+                    <td class="total-value">
+                        <span>
+                            {{ p.total_qty or "0" }}
+                        </span>
+                    </td>
+
+                    <td></td>
+                </tr>
+
             </tbody>
+
         </table>
-        <table class="signatures">
-            <tr><td><span class="signature-line">Prepared By</span></td><td><span class="signature-line">Authorized Signature</span></td><td><span class="signature-line">Receiver's Signature</span></td></tr>
-        </table>
+
+        <div class="signatures">
+
+            <div class="signature">
+                <div class="signature-line">
+                    Prepared By
+                </div>
+            </div>
+
+            <div class="signature">
+                <div class="signature-line">
+                    Authorized Signature
+                </div>
+            </div>
+
+            <div class="signature">
+                <div class="signature-line">
+                    Receiver's Signature
+                </div>
+            </div>
+
+        </div>
+
     </div>
+
     {% endfor %}
+
 </div>

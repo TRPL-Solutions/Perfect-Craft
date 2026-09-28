@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import frappe
+from pc_production.print_utils import ensure_default_print_format
 from frappe.utils import (
     flt,
     getdate,
@@ -585,3 +586,4 @@ def ensure_sales_invoice_print_format():
     print_format.save(
         ignore_permissions=True
     )
+    ensure_default_print_format("Sales Invoice", PRINT_FORMAT_NAME)
