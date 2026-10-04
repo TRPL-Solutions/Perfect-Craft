@@ -9,7 +9,10 @@ from frappe.utils import cint, flt, formatdate, getdate
 
 from erpnext.stock.utils import get_stock_balance
 
-from pc_production.stock_entry import AUTO_PREFIX
+from pc_production.stock_entry import (
+    AUTO_PREFIX,
+    get_over_under_absorption_account,
+)
 
 
 QTY_TOLERANCE = 0.000001
@@ -2267,19 +2270,64 @@ class MonthEndProductionCostAdjustment(Document):
                     )
                 )
 
-        for component in (
-            self.get_current_cost_components()
-        ):
-            accounts.add(
-                (
-                    component[
-                        "expense_account"
-                    ],
-                    component[
-                        "origin_cost_center"
-                    ],
+        # Month-end variance is posted to the Company
+        # Over/Under Absorption Account, never to the
+        # individual expense accounts.
+        components = [
+            component
+            for component in (
+                self.get_current_cost_components()
+            )
+            if (
+                abs(
+                    flt(
+                        component[
+                            "amount"
+                        ]
+                    )
+                )
+                > AMOUNT_TOLERANCE
+            )
+        ]
+
+        if components:
+            over_under_absorption_account = (
+                get_over_under_absorption_account(
+                    self.company
                 )
             )
+
+            # Same account on both sides would net the
+            # variance away inside the Journal Entry.
+            if over_under_absorption_account in (
+                {self.stock_adjustment_account}
+                | {
+                    row.cogs_account
+                    for row in self.production_items
+                    if row.cogs_account
+                }
+            ):
+                frappe.throw(
+                    _(
+                        "Over/Under Absorption Account {0} cannot "
+                        "be the Stock Adjustment Account or a "
+                        "COGS / Final Expense Account."
+                    ).format(
+                        frappe.bold(
+                            over_under_absorption_account
+                        )
+                    )
+                )
+
+            for component in components:
+                accounts.add(
+                    (
+                        over_under_absorption_account,
+                        component[
+                            "origin_cost_center"
+                        ],
+                    )
+                )
 
         for (
             account,
@@ -2806,6 +2854,15 @@ class MonthEndProductionCostAdjustment(Document):
         if not components:
             return None
 
+        # Balancing account for the resolved variance.
+        # Always fetched from Company; individual expense
+        # accounts keep only their actual postings.
+        over_under_absorption_account = (
+            get_over_under_absorption_account(
+                self.company
+            )
+        )
+
         total_remaining_qty = sum(
             flt(
                 row.remaining_qty
@@ -2925,6 +2982,9 @@ class MonthEndProductionCostAdjustment(Document):
                 + sold_component
             )
 
+            # Aggregated per origin Cost Center on the
+            # Over/Under Absorption Account (no row per
+            # assumption expense account).
             if (
                 abs(
                     resolved_component
@@ -2933,9 +2993,7 @@ class MonthEndProductionCostAdjustment(Document):
             ):
                 signed_lines[
                     (
-                        component[
-                            "expense_account"
-                        ],
+                        over_under_absorption_account,
                         component[
                             "origin_cost_center"
                         ],
@@ -2976,9 +3034,7 @@ class MonthEndProductionCostAdjustment(Document):
         ):
             source_keys = [
                 (
-                    component[
-                        "expense_account"
-                    ],
+                    over_under_absorption_account,
                     component[
                         "origin_cost_center"
                     ],

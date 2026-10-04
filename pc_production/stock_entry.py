@@ -359,6 +359,8 @@ from erpnext.stock.doctype.stock_entry.stock_entry import (
 
 AUTO_PREFIX = "Monthly Production Overhead |"
 
+OVER_UNDER_ABSORPTION_FIELD = "custom_over_under_absorption_account"
+
 
 class CustomStockEntry(ERPNextStockEntry):
     """
@@ -366,9 +368,14 @@ class CustomStockEntry(ERPNextStockEntry):
 
     Estimated production expenses:
     - are fetched from Monthly Production Setting
-    - stay separate from standard Additional Costs
-    - are capitalized into Manufacture FG valuation
-    - are posted to GL using ERPNext v15.118.1-compatible logic
+    - are shown per MPS expense account in custom_expenses
+      (informational only, no GL impact)
+    - are capitalized through ONE standard Additional Costs
+      row on the Company Over/Under Absorption Account
+
+    Legacy entries (custom_expenses without the generated
+    Additional Costs row) keep the old custom valuation and
+    GL logic so reposts do not rewrite history.
     """
 
     def validate(self):
@@ -380,6 +387,20 @@ class CustomStockEntry(ERPNextStockEntry):
 
         # Perfect Craft final validation.
         validate_cost_centers(self)
+
+        # A draft saved before the Additional Costs flow must be
+        # saved again so the absorption row is generated.
+        if (
+            self.docstatus == 1
+            and is_legacy_estimated_expense_entry(self)
+        ):
+            frappe.throw(
+                _(
+                    "Estimated production expenses were prepared "
+                    "with the old flow. Save this Stock Entry "
+                    "again before submitting."
+                )
+            )
 
     def _get_pc_incoming_items_and_basic_total(self):
         """
@@ -411,8 +432,10 @@ class CustomStockEntry(ERPNextStockEntry):
 
     def distribute_additional_costs(self):
         """
-        1. Preserve ERPNext manual Additional Costs.
-        2. Add MPS estimated expenses separately into FG valuation.
+        1. Preserve ERPNext standard Additional Costs, which
+           already include the generated absorption row.
+        2. LEGACY ONLY: add MPS estimated expenses separately
+           into FG valuation for entries without that row.
         """
 
         # Standard ERPNext Additional Costs stay fully functional.
@@ -434,6 +457,11 @@ class CustomStockEntry(ERPNextStockEntry):
             )
 
         if estimated_total <= 0:
+            return
+
+        # Current flow: standard Additional Costs already
+        # capitalized the estimate. Never add it twice.
+        if not is_legacy_estimated_expense_entry(self):
             return
 
         (
@@ -477,8 +505,14 @@ class CustomStockEntry(ERPNextStockEntry):
         """
         Keep normal ERPNext Stock Entry GL entries first.
 
-        Then post custom estimated Expenses using the same
-        accounting pattern ERPNext v15.118.1 uses for
+        Current flow: the estimate is a standard Additional
+        Costs row, so ERPNext already posts
+            Dr Stock Adjustment / Cr Over/Under Absorption
+        and nothing is added here.
+
+        LEGACY ONLY: entries without the generated row post
+        custom estimated Expenses per MPS expense account using
+        the same accounting pattern ERPNext v15.118.1 uses for
         Additional Costs.
         """
 
@@ -490,6 +524,9 @@ class CustomStockEntry(ERPNextStockEntry):
             return gl_entries
 
         if not self.meta.has_field("custom_expenses"):
+            return gl_entries
+
+        if not is_legacy_estimated_expense_entry(self):
             return gl_entries
 
         expense_rows = [
@@ -960,6 +997,58 @@ def apply_monthly_production_overhead(
         doc.custom_total_estimated_expenses = (
             total_estimated
         )
+
+    # ---------------------------------------------------------
+    # ONE aggregated standard Additional Costs row.
+    #
+    # ERPNext then capitalizes it into FG valuation, sets
+    # total_additional_costs and posts:
+    #     Dr Stock Adjustment / Cr Over/Under Absorption
+    #
+    # The custom_expenses rows above stay informational.
+    # remove_legacy_auto_overhead_rows() (called above) removes
+    # this row before every rebuild, so it is never duplicated.
+    # ---------------------------------------------------------
+
+    absorption_account = (
+        get_over_under_absorption_account(
+            doc.company
+        )
+    )
+
+    if absorption_account in {
+        row.expense_account
+        for row in doc.get("custom_expenses")
+    }:
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} cannot be "
+                "one of the Monthly Production Setting "
+                "expense accounts."
+            ).format(
+                frappe.bold(
+                    absorption_account
+                )
+            )
+        )
+
+    doc.append(
+        "additional_costs",
+        {
+            "expense_account":
+                absorption_account,
+
+            "description":
+                (
+                    f"{AUTO_PREFIX} "
+                    f"{setting.name} | "
+                    "Total Estimated Expenses"
+                ),
+
+            "amount":
+                total_estimated,
+        },
+    )
 
 
 def get_finished_goods_rows(doc):
@@ -1466,3 +1555,175 @@ def get_estimated_expense_total(doc):
             or []
         )
     )
+
+
+def is_legacy_estimated_expense_entry(doc):
+    """
+    True for Manufacture entries whose estimated expenses
+    exist in custom_expenses but NOT as the generated
+    standard Additional Costs row, i.e. entries submitted
+    before the Additional Costs flow.
+
+    Such entries keep the old custom valuation and GL logic
+    so Repost Item Valuation / Repost Accounting Ledger do
+    not rewrite historical accounting.
+    """
+
+    if doc.purpose != "Manufacture":
+        return False
+
+    if get_estimated_expense_total(doc) <= 0:
+        return False
+
+    return not any(
+        (
+            row.description
+            or ""
+        ).startswith(
+            AUTO_PREFIX
+        )
+        for row in (
+            doc.get("additional_costs")
+            or []
+        )
+    )
+
+
+def get_over_under_absorption_account(company):
+    """
+    Return the validated Over/Under Absorption Account
+    configured on Company.
+    """
+
+    if not company:
+        frappe.throw(
+            _(
+                "Company is required to fetch the "
+                "Over/Under Absorption Account."
+            )
+        )
+
+    if not frappe.get_meta(
+        "Company"
+    ).has_field(
+        OVER_UNDER_ABSORPTION_FIELD
+    ):
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account customization "
+                "is missing on Company. Run bench migrate for "
+                "the pc_production app."
+            )
+        )
+
+    account = frappe.db.get_value(
+        "Company",
+        company,
+        OVER_UNDER_ABSORPTION_FIELD,
+    )
+
+    if not account:
+        frappe.throw(
+            _(
+                "Set Over/Under Absorption Account "
+                "in Company {0}."
+            ).format(
+                frappe.bold(
+                    company
+                )
+            )
+        )
+
+    account_data = frappe.db.get_value(
+        "Account",
+        account,
+        [
+            "company",
+            "is_group",
+            "disabled",
+            "account_currency",
+        ],
+        as_dict=True,
+    )
+
+    if not account_data:
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} "
+                "does not exist."
+            ).format(
+                frappe.bold(
+                    account
+                )
+            )
+        )
+
+    if account_data.company != company:
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} does not "
+                "belong to Company {1}."
+            ).format(
+                frappe.bold(
+                    account
+                ),
+                frappe.bold(
+                    company
+                ),
+            )
+        )
+
+    if cint(account_data.is_group):
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} is a Group "
+                "Account. Select a ledger account in Company {1}."
+            ).format(
+                frappe.bold(
+                    account
+                ),
+                frappe.bold(
+                    company
+                ),
+            )
+        )
+
+    if cint(account_data.disabled):
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} "
+                "is disabled."
+            ).format(
+                frappe.bold(
+                    account
+                )
+            )
+        )
+
+    company_currency = frappe.get_cached_value(
+        "Company",
+        company,
+        "default_currency",
+    )
+
+    if (
+        account_data.account_currency
+        and company_currency
+        and account_data.account_currency
+        != company_currency
+    ):
+        frappe.throw(
+            _(
+                "Over/Under Absorption Account {0} must use "
+                "Company currency {1}."
+            ).format(
+                frappe.bold(
+                    account
+                ),
+                frappe.bold(
+                    company_currency
+                ),
+            )
+        )
+
+    return account

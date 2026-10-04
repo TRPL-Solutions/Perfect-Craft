@@ -1,0 +1,21 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Company",
+   "fieldname": "custom_over_under_absorption_account",
+   "fieldtype": "Link",
+   "insert_after": "stock_adjustment_account",
+   "label": "Over/Under Absorption Account",
+   "options": "Account",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"eval:doc.name\"],[\"Account\",\"is_group\",\"=\",0],[\"Account\",\"disabled\",\"=\",0]]",
+   "description": "Credited with estimated production expenses absorbed into Finished Good valuation on Manufacture Stock Entry, and with month-end production cost variance.",
+   "no_copy": 1,
+   "name": "Company-custom_over_under_absorption_account"
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Company",
+ "links": [],
+ "property_setters": [],
+ "sync_on_migrate": 1
+}
