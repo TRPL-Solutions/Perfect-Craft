@@ -729,7 +729,7 @@ def ensure_default_print_format(doc_type, print_format_name):
 def ensure_gate_pass_default_print_format():
     ensure_default_print_format("Gate Pass", GATE_PASS_PRINT_FORMAT_NAME)
 
-def ensure_gate_pass_print_format():
+# def ensure_gate_pass_print_format():
     html_path = frappe.get_app_path(
         "pc_production",
         "print_formats",

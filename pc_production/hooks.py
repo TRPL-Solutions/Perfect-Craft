@@ -443,7 +443,7 @@ after_migrate = [
 
     "pc_production.print_utils.ensure_delivery_trip_print_format",
 
-    "pc_production.print_utils.ensure_gate_pass_print_format",
+    # "pc_production.print_utils.ensure_gate_pass_print_format",
 
     "pc_production.sales_invoice_print.ensure_sales_invoice_print_format",
 ]
