@@ -10,7 +10,7 @@ def execute():
 		"fieldname": "custom_gate_pass",
 		"label": "Gate Pass",
 		"fieldtype": "Link",
-		"options": "Gate Pass",
+		"options": "Delivery Note",
 		"insert_after": "remarks",
 		"read_only": 1,
 		"no_copy": 1,

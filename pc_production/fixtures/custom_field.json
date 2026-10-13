@@ -38,7 +38,7 @@
   "name": "Purchase Invoice-custom_gate_pass",
   "no_copy": 1,
   "non_negative": 0,
-  "options": "Gate Pass",
+  "options": "Delivery Note",
   "permlevel": 0,
   "placeholder": null,
   "precision": null,
