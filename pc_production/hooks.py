@@ -343,6 +343,8 @@ doctype_js = {
     "Stock Reconciliation": "public/js/stock_reconciliation.js",
     "BOM": "pc_production/doctype/bom/bom.js",
 
+    "Delivery Note":
+        "pc_production/doctype/delivery_note/delivery_note.js",
     "Delivery Trip":
         "pc_production/doctype/delivery_trip/delivery_trip.js",
     "Work Order":
@@ -357,6 +359,16 @@ override_doctype_class = {
 
 
 doc_events = {
+
+    # Informational carton charges only - no PI / accounting impact
+    "Delivery Note": {
+        "before_validate":
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.validate_carton_required",
+        "validate": [
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.calculate_delivery_charges",
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.validate_transport_details",
+        ],
+    },
 
     "Delivery Trip": {
 
