@@ -360,7 +360,7 @@ override_doctype_class = {
 
 doc_events = {
 
-    # Informational carton charges only - no PI / accounting impact
+    # Gate Pass: carton Delivery Charges + transport Purchase Invoice
     "Delivery Note": {
         "before_validate":
             "pc_production.pc_production.doctype.delivery_note.delivery_note.validate_carton_required",
@@ -368,6 +368,16 @@ doc_events = {
             "pc_production.pc_production.doctype.delivery_note.delivery_note.calculate_delivery_charges",
             "pc_production.pc_production.doctype.delivery_note.delivery_note.validate_transport_details",
         ],
+
+        # Transport Purchase Invoice for Delivery Charges
+        "before_submit":
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.validate_transport_invoice",
+        "on_submit":
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.create_transport_purchase_invoice",
+        "on_cancel":
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.cancel_transport_purchase_invoice",
+        "on_trash":
+            "pc_production.pc_production.doctype.delivery_note.delivery_note.delete_transport_purchase_invoice",
     },
 
     "Delivery Trip": {

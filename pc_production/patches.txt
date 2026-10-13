@@ -6,3 +6,4 @@
 # Patches added in this section will be executed after doctypes are migrated
 
 pc_production.patches.ensure_purchase_invoice_gate_pass_field
+pc_production.patches.enable_delete_linked_ledger_entries

@@ -78,57 +78,6 @@ function pc_refresh_dn_delivery_charges(frm) {
 
 
 // ============================================================
-// TRANSPORTER / DRIVER
-// ============================================================
-
-// ERPNext core filters Driver by { transporter: doc.transporter }.
-// When Transporter is "" (cleared, or loaded from a saved draft)
-// that matches only drivers WITHOUT a transporter, hiding valid ones.
-// Filter by transporter only when one is selected.
-function pc_get_driver_filters(doc) {
-
-    const filters = { status: "Active" };
-
-    if (doc.transporter) {
-        filters.transporter = doc.transporter;
-    }
-
-    return filters;
-}
-
-
-async function pc_clear_driver_if_invalid(frm) {
-
-    // Link control caches results by search text, not by filter.
-    const driver_field = frm.fields_dict.driver;
-    if (driver_field && driver_field.$input) {
-        driver_field.$input.cache = {};
-    }
-
-    if (!frm.doc.driver || !frm.doc.transporter) {
-        return;
-    }
-
-    const { message } = await frappe.db.get_value(
-        "Driver",
-        frm.doc.driver,
-        "transporter"
-    );
-
-    if ((message && message.transporter) !== frm.doc.transporter) {
-        await frm.set_value({ driver: "", driver_name: "" });
-
-        frappe.show_alert({
-            message: __("Driver cleared: not linked with Transporter {0}.", [
-                frm.doc.transporter,
-            ]),
-            indicator: "orange",
-        });
-    }
-}
-
-
-// ============================================================
 // DELIVERY NOTE
 // ============================================================
 
@@ -142,13 +91,11 @@ frappe.ui.form.on("Delivery Note", {
             filters: { disabled: 0 },
         }));
 
-        frm.set_query("driver", (doc) => ({
-            filters: pc_get_driver_filters(doc),
+        // ERPNext core limits Driver to the selected Transporter's
+        // drivers. Perfect Craft lists every active Driver.
+        frm.set_query("driver", () => ({
+            filters: { status: "Active" },
         }));
-    },
-
-    transporter(frm) {
-        return pc_clear_driver_if_invalid(frm);
     },
 
     refresh(frm) {
