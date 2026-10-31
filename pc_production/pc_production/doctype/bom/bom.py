@@ -7,40 +7,41 @@ from frappe.utils import flt
 # SCHEMA SYNC
 # ============================================================
 
-def sync_bom_item_schema():
-    """
-    Required because Perfect Craft keeps BOM Item custom fields
-    inside custom/bom.json instead of a separate bom_item.json.
+# def sync_bom_item_schema():
+#     """
+#     Required because Perfect Craft keeps BOM Item custom fields
+#     inside custom/bom.json instead of a separate bom_item.json.
 
-    Frappe syncs the Custom Field metadata, but the physical
-    columns must also be created in `tabBOM Item`.
-    """
+#     Frappe syncs the Custom Field metadata, but the physical
+#     columns must also be created in `tabBOM Item`.
+#     """
 
-    frappe.clear_cache(doctype="BOM Item")
+#     frappe.clear_cache(doctype="BOM Item")
 
-    frappe.db.updatedb("BOM Item")
+#     frappe.db.updatedb("BOM Item")
 
-    frappe.clear_cache(doctype="BOM Item")
+#     frappe.clear_cache(doctype="BOM Item")
 
 
-def after_migrate():
-    """
-    Runs after bench migrate.
+# def after_migrate():
+#     """
+#     Runs after bench migrate.
 
-    At this stage custom/bom.json has already been synced,
-    therefore Custom Field records exist and updatedb can
-    safely create/update the BOM Item database columns.
-    """
+#     At this stage custom/bom.json has already been synced,
+#     therefore Custom Field records exist and updatedb can
+#     safely create/update the BOM Item database columns.
+#     """
 
-    sync_bom_item_schema()
+#     sync_bom_item_schema()
 
 
 # ============================================================
 # BOM RAW MATERIAL + SCRAP AUTOMATION
 # ============================================================
 
-# def sync_raw_material_and_scrap(doc, method=None):
-#     """
+def sync_raw_material_and_scrap(doc, method=None):
+    pass
+    """
 #     Perfect Craft BOM automation.
 
 #     Raw Material Qty + Scrap Qty = Qty
