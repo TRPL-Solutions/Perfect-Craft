@@ -39,192 +39,192 @@ def after_migrate():
 # BOM RAW MATERIAL + SCRAP AUTOMATION
 # ============================================================
 
-def sync_raw_material_and_scrap(doc, method=None):
-    """
-    Perfect Craft BOM automation.
+# def sync_raw_material_and_scrap(doc, method=None):
+#     """
+#     Perfect Craft BOM automation.
 
-    Raw Material Qty + Scrap Qty = Qty
+#     Raw Material Qty + Scrap Qty = Qty
 
-    Example:
+#     Example:
 
-        Raw Material Qty = 100
-        Scrap Qty        = 10
-        Qty              = 110
+#         Raw Material Qty = 100
+#         Scrap Qty        = 10
+#         Qty              = 110
 
-    Scrap Item / Scrap Qty entered in BOM Item are copied
-    automatically to the standard BOM Scrap Items table.
-    """
+#     Scrap Item / Scrap Qty entered in BOM Item are copied
+#     automatically to the standard BOM Scrap Items table.
+#     """
 
-    items = doc.get("items") or []
+#     items = doc.get("items") or []
 
-    if not items:
-        return
-
-
-    scrap_totals = {}
+#     if not items:
+#         return
 
 
-    # ========================================================
-    # RAW MATERIAL ROWS
-    # ========================================================
-
-    for row in items:
-
-        raw_qty = flt(
-            row.get("custom_raw_material_qty")
-        )
-
-        scrap_qty = flt(
-            row.get("custom_scrap_qty")
-        )
-
-        scrap_item = row.get(
-            "custom_scrap_item"
-        )
+#     scrap_totals = {}
 
 
-        # ====================================================
-        # EXISTING BOM SUPPORT
-        # ====================================================
-        #
-        # Existing BOMs already have standard Qty.
-        #
-        # If Raw Material Qty has not yet been populated,
-        # preserve the existing Qty as Raw Material Qty.
-        # ====================================================
+#     # ========================================================
+#     # RAW MATERIAL ROWS
+#     # ========================================================
 
-        if (
-            raw_qty <= 0
-            and flt(row.qty) > 0
-            and not scrap_item
-            and scrap_qty <= 0
-        ):
+#     for row in items:
 
-            raw_qty = flt(row.qty)
+#         raw_qty = flt(
+#             row.get("custom_raw_material_qty")
+#         )
 
-            row.custom_raw_material_qty = raw_qty
+#         scrap_qty = flt(
+#             row.get("custom_scrap_qty")
+#         )
+
+#         scrap_item = row.get(
+#             "custom_scrap_item"
+#         )
 
 
-        # ====================================================
-        # VALIDATION
-        # ====================================================
+#         # ====================================================
+#         # EXISTING BOM SUPPORT
+#         # ====================================================
+#         #
+#         # Existing BOMs already have standard Qty.
+#         #
+#         # If Raw Material Qty has not yet been populated,
+#         # preserve the existing Qty as Raw Material Qty.
+#         # ====================================================
 
-        if raw_qty < 0:
+#         if (
+#             raw_qty <= 0
+#             and flt(row.qty) > 0
+#             and not scrap_item
+#             and scrap_qty <= 0
+#         ):
 
-            frappe.throw(
-                _(
-                    "Row {0}: Raw Material Qty cannot be negative."
-                ).format(row.idx)
-            )
+#             raw_qty = flt(row.qty)
 
-
-        if scrap_qty < 0:
-
-            frappe.throw(
-                _(
-                    "Row {0}: Scrap Qty cannot be negative."
-                ).format(row.idx)
-            )
-
-
-        if scrap_qty > 0 and not scrap_item:
-
-            frappe.throw(
-                _(
-                    "Row {0}: Please select Scrap Item."
-                ).format(row.idx)
-            )
+#             row.custom_raw_material_qty = raw_qty
 
 
-        if scrap_item and scrap_qty <= 0:
+#         # ====================================================
+#         # VALIDATION
+#         # ====================================================
 
-            frappe.throw(
-                _(
-                    "Row {0}: Please enter Scrap Qty for Scrap Item {1}."
-                ).format(
-                    row.idx,
-                    frappe.bold(scrap_item)
-                )
-            )
+#         if raw_qty < 0:
 
-
-        if (
-            (scrap_item or scrap_qty > 0)
-            and raw_qty <= 0
-        ):
-
-            frappe.throw(
-                _(
-                    "Row {0}: Please enter Raw Material Qty."
-                ).format(row.idx)
-            )
+#             frappe.throw(
+#                 _(
+#                     "Row {0}: Raw Material Qty cannot be negative."
+#                 ).format(row.idx)
+#             )
 
 
-        # ====================================================
-        # FINAL RAW MATERIAL CONSUMPTION
-        # ====================================================
-        #
-        # Qty = Raw Material Qty + Scrap Qty
-        # ====================================================
+#         if scrap_qty < 0:
 
-        if raw_qty > 0 or scrap_qty > 0:
-
-            row.qty = flt(
-                raw_qty + scrap_qty,
-                row.precision("qty")
-            )
+#             frappe.throw(
+#                 _(
+#                     "Row {0}: Scrap Qty cannot be negative."
+#                 ).format(row.idx)
+#             )
 
 
-        # ====================================================
-        # COLLECT SCRAP
-        # ====================================================
+#         if scrap_qty > 0 and not scrap_item:
 
-        if scrap_item and scrap_qty > 0:
-
-            scrap_totals[scrap_item] = (
-                flt(
-                    scrap_totals.get(
-                        scrap_item,
-                        0
-                    )
-                )
-                + scrap_qty
-            )
+#             frappe.throw(
+#                 _(
+#                     "Row {0}: Please select Scrap Item."
+#                 ).format(row.idx)
+#             )
 
 
-    # ========================================================
-    # STANDARD BOM SCRAP TABLE
-    #
-    # Scrap & Process Loss table is generated automatically.
-    # User does not maintain it manually.
-    # ========================================================
+#         if scrap_item and scrap_qty <= 0:
 
-    doc.set(
-        "scrap_items",
-        []
-    )
-
-
-    for scrap_item, scrap_qty in scrap_totals.items():
-
-        if not scrap_item:
-            continue
+#             frappe.throw(
+#                 _(
+#                     "Row {0}: Please enter Scrap Qty for Scrap Item {1}."
+#                 ).format(
+#                     row.idx,
+#                     frappe.bold(scrap_item)
+#                 )
+#             )
 
 
-        if flt(scrap_qty) <= 0:
-            continue
+#         if (
+#             (scrap_item or scrap_qty > 0)
+#             and raw_qty <= 0
+#         ):
+
+#             frappe.throw(
+#                 _(
+#                     "Row {0}: Please enter Raw Material Qty."
+#                 ).format(row.idx)
+#             )
 
 
-        scrap_row = doc.append(
-            "scrap_items",
-            {}
-        )
+#         # ====================================================
+#         # FINAL RAW MATERIAL CONSUMPTION
+#         # ====================================================
+#         #
+#         # Qty = Raw Material Qty + Scrap Qty
+#         # ====================================================
+
+#         if raw_qty > 0 or scrap_qty > 0:
+
+#             row.qty = flt(
+#                 raw_qty + scrap_qty,
+#                 row.precision("qty")
+#             )
 
 
-        scrap_row.item_code = scrap_item
+#         # ====================================================
+#         # COLLECT SCRAP
+#         # ====================================================
+
+#         if scrap_item and scrap_qty > 0:
+
+#             scrap_totals[scrap_item] = (
+#                 flt(
+#                     scrap_totals.get(
+#                         scrap_item,
+#                         0
+#                     )
+#                 )
+#                 + scrap_qty
+#             )
 
 
-        # ERPNext v15 BOM Scrap Item quantity field.
-        scrap_row.stock_qty = flt(
-            scrap_qty
-        )
+#     # ========================================================
+#     # STANDARD BOM SCRAP TABLE
+#     #
+#     # Scrap & Process Loss table is generated automatically.
+#     # User does not maintain it manually.
+#     # ========================================================
+
+#     doc.set(
+#         "scrap_items",
+#         []
+#     )
+
+
+#     for scrap_item, scrap_qty in scrap_totals.items():
+
+#         if not scrap_item:
+#             continue
+
+
+#         if flt(scrap_qty) <= 0:
+#             continue
+
+
+#         scrap_row = doc.append(
+#             "scrap_items",
+#             {}
+#         )
+
+
+#         scrap_row.item_code = scrap_item
+
+
+#         # ERPNext v15 BOM Scrap Item quantity field.
+#         scrap_row.stock_qty = flt(
+#             scrap_qty
+#         )
