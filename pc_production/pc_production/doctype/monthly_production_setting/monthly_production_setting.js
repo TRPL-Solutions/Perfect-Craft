@@ -8,12 +8,16 @@
 // });
 frappe.ui.form.on("Monthly Production Setting", {
     setup(frm) {
-        // set_query(link_field, child_table_field, ...): only ledger accounts of the selected company.
+        // set_query(link_field, child_table_field, ...): enabled Expense Account ledgers
+        // of the selected company. Company is read on every lookup, so changing it
+        // refreshes the options for existing and new rows.
         frm.set_query("type_of_expense", "expenses", () => {
             return {
                 filters: {
+                    company: frm.doc.company,
+                    account_type: "Expense Account",
                     is_group: 0,
-                    company: frm.doc.company
+                    disabled: 0
                 }
             };
         });

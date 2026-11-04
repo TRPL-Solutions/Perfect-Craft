@@ -97,22 +97,24 @@ class MonthlyProductionSetting(Document):
             account = frappe.db.get_value(
                 "Account",
                 row.type_of_expense,
-                ["company", "is_group"],
+                ["company", "is_group", "disabled", "account_type"],
                 as_dict=True,
             )
 
             if not account:
                 frappe.throw(
-                    _("Account {0} does not exist.").format(
-                        row.type_of_expense
+                    _("Row {0}: Account {1} does not exist.").format(
+                        row.idx,
+                        row.type_of_expense,
                     )
                 )
 
             if account.company != self.company:
                 frappe.throw(
                     _(
-                        "Account {0} does not belong to Company {1}."
+                        "Row {0}: Account {1} does not belong to Company {2}."
                     ).format(
+                        row.idx,
                         row.type_of_expense,
                         self.company,
                     )
@@ -121,8 +123,32 @@ class MonthlyProductionSetting(Document):
             if account.is_group:
                 frappe.throw(
                     _(
+                        "Row {0}: Account {1} is a Group Account. "
                         "Please select a ledger Account, "
                         "not a Group Account."
+                    ).format(
+                        row.idx,
+                        row.type_of_expense,
+                    )
+                )
+
+            if account.disabled:
+                frappe.throw(
+                    _("Row {0}: Account {1} is disabled.").format(
+                        row.idx,
+                        row.type_of_expense,
+                    )
+                )
+
+            if account.account_type != "Expense Account":
+                frappe.throw(
+                    _(
+                        "Row {0}: Account {1} must have Account Type "
+                        "'Expense Account' (current: {2})."
+                    ).format(
+                        row.idx,
+                        row.type_of_expense,
+                        account.account_type or _("Not Set"),
                     )
                 )
 
