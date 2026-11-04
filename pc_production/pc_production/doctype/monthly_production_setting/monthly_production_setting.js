@@ -8,10 +8,12 @@
 // });
 frappe.ui.form.on("Monthly Production Setting", {
     setup(frm) {
-        frm.set_query("expenses", "type_of_expense", () => {
+        // set_query(link_field, child_table_field, ...): only ledger accounts of the selected company.
+        frm.set_query("type_of_expense", "expenses", () => {
             return {
                 filters: {
-                    is_group: 1
+                    is_group: 0,
+                    company: frm.doc.company
                 }
             };
         });
