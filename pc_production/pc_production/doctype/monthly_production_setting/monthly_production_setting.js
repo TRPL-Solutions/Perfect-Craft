@@ -6,3 +6,14 @@
 
 // 	},
 // });
+frappe.ui.form.on("Monthly Production Setting", {
+    setup(frm) {
+        frm.set_query("expenses", "type_of_expense", () => {
+            return {
+                filters: {
+                    is_group: 1
+                }
+            };
+        });
+    }
+});
