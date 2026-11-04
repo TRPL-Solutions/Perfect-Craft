@@ -1,0 +1,180 @@
+{%
+	var rows = (original_data && original_data.length ? original_data : data) || [];
+	var is_detail = filters.report_type === "Detail";
+	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
+	var num = function (v) {
+		v = flt(v);
+		return format_number(v, null, Math.abs(v - Math.round(v)) < 0.005 ? 0 : 2);
+	};
+	var pct = function (v) { return format_number(flt(v), null, 2) + "%"; };
+	var fdate = function (d, f) { return d ? moment(d).format(f) : ""; };
+	var now = moment();
+	var applied = [];
+	if (filters.control_account) { applied.push("Control A/c.: " + filters.control_account + (filters.control_account_title ? " - " + filters.control_account_title : "")); }
+	if (filters.territory) { applied.push("Region: " + filters.territory); }
+	if (filters.city) { applied.push("City: " + filters.city); }
+	if (filters.area) { applied.push("Area: " + filters.area); }
+	if (filters.sales_person) { applied.push("Sales Man: " + filters.sales_person); }
+	if (filters.customer) { applied.push("A/c.: " + filters.customer + (filters.customer_title ? " - " + filters.customer_title : "")); }
+	applied.push("Basis: " + (filters.sales_basis || "Net Sales"));
+	applied.push(["No", 0, "0"].indexOf(filters.include_returns) === -1 ? "Returns included" : "Returns excluded");
+	var colspan = is_detail ? 10 : 8;
+	var widths = is_detail ? [7, 10, 17, 9, 9, 8, 18, 6, 7, 9] : [5, 27, 13, 12, 12, 9, 13, 9];
+%}
+<style>
+	@page {
+		size: A4 landscape;
+		margin: 10mm 8mm 12mm 8mm;
+		@bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; }
+	}
+	.print-format { padding: 0 !important; max-width: none !important; font-size: 8pt; }
+	.sr-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
+	.sr-table thead { display: table-header-group; }
+	.sr-table td, .sr-table th { padding: 2px 4px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
+	.sr-head td { border: none; padding: 0 0 6px 0; }
+	.sr-head .sr-company { font-size: 15pt; font-weight: bold; text-decoration: underline; text-align: center; }
+	.sr-head .sr-title { font-size: 13pt; text-decoration: underline; text-align: center; }
+	.sr-head .sr-range { font-size: 9pt; text-align: center; }
+	.sr-head .sr-meta { font-size: 8pt; }
+	.sr-head .sr-filters { font-size: 7pt; color: #555; text-align: center; }
+	.sr-cols th { border-top: 2px solid #000; border-bottom: 2px solid #000; background: #eee; font-weight: bold; text-align: left; }
+	.sr-cols th.sr-num, .sr-table td.sr-num { text-align: right; white-space: nowrap; }
+	.sr-group { break-inside: avoid; page-break-inside: avoid; }
+	.sr-line td { border-bottom: 1px dotted #888; }
+	.sr-subtotal td { font-weight: bold; padding-top: 3px; padding-bottom: 5px; }
+	.sr-subtotal td.sr-sum { border-top: 1px solid #000; border-bottom: 1px solid #000; }
+	.sr-grand td { font-weight: bold; font-size: 9pt; padding-top: 6px; }
+	.sr-grand td.sr-sum { border-top: 2px solid #000; border-bottom: 3px double #000; }
+	.sr-sp td { color: #1a3fb3; font-weight: bold; font-size: 10pt; text-decoration: underline; padding-top: 6px; }
+	.sr-area { padding-left: 24px !important; }
+</style>
+
+<table class="sr-table">
+	<colgroup>
+		{% for (var w = 0; w < widths.length; w++) { %}<col style="width: {{ widths[w] }}%;">{% } %}
+	</colgroup>
+	<thead>
+		<tr class="sr-head">
+			<td colspan="{{ colspan }}">
+				<table style="width: 100%;">
+					<tr>
+						<td class="sr-meta" style="width: 18%; vertical-align: middle;">{{ now.format("DD-MMM-YYYY") }}<br>{{ now.format("h:mm:ssA") }}</td>
+						<td style="width: 64%;">
+							<div class="sr-company">{{ esc(filters.company) }}</div>
+							<div class="sr-title">{{ is_detail ? "Sale Invoice Report (Detail)" : "Sales Report" }}</div>
+							<div class="sr-range">From : {{ fdate(filters.from_date, "DD-MMM-YYYY") }} &nbsp; To : {{ fdate(filters.to_date, "DD-MMM-YYYY") }}</div>
+							<div class="sr-filters">{{ esc(applied.join(" | ")) }}</div>
+						</td>
+						<td class="sr-meta" style="width: 18%; text-align: right; vertical-align: middle;"><i>{{ esc(frappe.session.user_fullname || frappe.session.user) }}</i></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		{% if (is_detail) { %}
+		<tr class="sr-cols">
+			<th>Inv. Date</th>
+			<th>Inv. No.</th>
+			<th>Customer Name</th>
+			<th>Sales Man</th>
+			<th>Region</th>
+			<th>City Name</th>
+			<th>Item Description</th>
+			<th class="sr-num">Qty</th>
+			<th class="sr-num">Price</th>
+			<th class="sr-num">Amount</th>
+		</tr>
+		{% } else { %}
+		<tr class="sr-cols">
+			<th>S. #</th>
+			<th>A/c. Title</th>
+			<th>Region</th>
+			<th>City</th>
+			<th>Area</th>
+			<th class="sr-num">Total Quantity</th>
+			<th class="sr-num">Total Sales Amount</th>
+			<th class="sr-num">%age of Sales</th>
+		</tr>
+		{% } %}
+	</thead>
+
+	{% if (!rows.length) { %}
+	<tbody><tr><td colspan="{{ colspan }}" style="text-align: center; padding: 20px;">No sales found for the selected filters.</td></tr></tbody>
+	{% } %}
+
+	{% if (is_detail) { %}
+		{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+			{% if (r.row_type === "item" && r.invoice) { %}
+			<tbody class="sr-group">
+			<tr>
+				<td>{{ fdate(r.posting_date, "DD/MM/YYYY") }}</td>
+				<td>{{ esc(r.invoice) }}</td>
+				<td>{{ esc(r.customer_name) }}</td>
+				<td>{{ esc(r.sales_person) }}</td>
+				<td>{{ esc(r.region) }}</td>
+				<td>{{ esc(r.city) }}</td>
+				<td class="sr-area">{{ esc(r.area) }}</td>
+				<td></td><td></td><td></td>
+			</tr>
+			{% } %}
+			{% if (r.row_type === "item") { %}
+			<tr class="sr-line">
+				<td colspan="6"></td>
+				<td>{{ esc(r.item_name) }}</td>
+				<td class="sr-num">{{ num(r.qty) }}</td>
+				<td class="sr-num">{{ num(r.rate) }}</td>
+				<td class="sr-num">{{ num(r.amount) }}</td>
+			</tr>
+			{% } else if (r.row_type === "invoice_total") { %}
+			<tr class="sr-subtotal">
+				<td colspan="7" style="text-align: right; font-size: 9pt;">Invoice Total:</td>
+				<td class="sr-num sr-sum">{{ num(r.qty) }}</td>
+				<td></td>
+				<td class="sr-num sr-sum">{{ num(r.amount) }}</td>
+			</tr>
+			</tbody>
+			{% } else if (r.row_type === "grand_total") { %}
+			<tbody class="sr-group">
+			<tr class="sr-grand">
+				<td colspan="7" style="text-align: right;">Grand Total:</td>
+				<td class="sr-num sr-sum">{{ num(r.qty) }}</td>
+				<td></td>
+				<td class="sr-num sr-sum">{{ num(r.amount) }}</td>
+			</tr>
+			</tbody>
+			{% } %}
+		{% } %}
+	{% } else { %}
+		<tbody>
+		{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+			{% if (r.row_type === "sales_person") { %}
+			<tr class="sr-sp" style="break-after: avoid; page-break-after: avoid;"><td colspan="8">{{ esc(r.customer_name) }}</td></tr>
+			{% } else if (r.row_type === "customer") { %}
+			<tr class="sr-line" style="break-inside: avoid;">
+				<td class="sr-num">{{ esc(r.sno) }}</td>
+				<td>{{ esc(r.customer_name) }}</td>
+				<td>{{ esc(r.region) }}</td>
+				<td>{{ esc(r.city) }}</td>
+				<td>{{ esc(r.area) }}</td>
+				<td class="sr-num">{{ num(r.qty) }}</td>
+				<td class="sr-num">{{ num(r.amount) }}</td>
+				<td class="sr-num">{{ pct(r.percentage) }}</td>
+			</tr>
+			{% } else if (r.row_type === "sales_person_total") { %}
+			<tr class="sr-subtotal" style="break-before: avoid; page-break-before: avoid;">
+				<td colspan="5" style="text-align: right;">{{ esc(r.customer_name) }}</td>
+				<td class="sr-num sr-sum">{{ num(r.qty) }}</td>
+				<td class="sr-num sr-sum">{{ num(r.amount) }}</td>
+				<td class="sr-num sr-sum">{{ pct(r.percentage) }}</td>
+			</tr>
+			{% } else if (r.row_type === "grand_total") { %}
+			<tr class="sr-grand" style="break-inside: avoid;">
+				<td colspan="5" style="text-align: right;">Grand Total:</td>
+				<td class="sr-num sr-sum">{{ num(r.qty) }}</td>
+				<td class="sr-num sr-sum">{{ num(r.amount) }}</td>
+				<td class="sr-num sr-sum">{{ pct(r.percentage) }}</td>
+			</tr>
+			{% } %}
+		{% } %}
+		</tbody>
+	{% } %}
+</table>

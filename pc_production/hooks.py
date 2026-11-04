@@ -435,7 +435,7 @@ jinja = {
 
 after_migrate = [
 
-    "pc_production.pc_production.doctype.bom.bom.after_migrate",
+    # "pc_production.pc_production.doctype.bom.bom.after_migrate",
 
     "pc_production.pc_production.doctype.delivery_trip.delivery_trip.after_migrate",
 
