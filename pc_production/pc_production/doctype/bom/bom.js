@@ -437,3 +437,175 @@
 //     }
 
 // });
+
+// ============================================================
+// BOM CHILD TABLES: SHOW ITEM NAME INSTEAD OF ITEM CODE
+//
+// Item link fields in the Items, Scrap Items and Exploded Items
+// tables of a BOM display the Item Name. The saved value is
+// still the Item Code; only what the user sees changes.
+//
+// Only rows whose parent is a BOM are affected. Other doctypes
+// keep ERPNext's default "Item Code: Item Name" display.
+// ============================================================
+
+// Shared across re-runs of this script (Frappe re-runs doctype JS
+// on every form setup, but the patches below are applied once).
+frappe.pc_bom_item_names = frappe.pc_bom_item_names || {
+    // item_code -> item_name
+    names: {},
+    // item_code -> pending request
+    requests: {},
+};
+
+const PC_BOM_CHILD_DOCTYPES = ["BOM Item", "BOM Scrap Item", "BOM Explosion Item"];
+const PC_BOM_CHILD_TABLES = ["items", "scrap_items", "exploded_items"];
+const PC_BOM_ITEM_LINK_FIELDS = ["item_code", "custom_scrap_item", "original_item"];
+
+
+function pc_is_bom_child_item_link(doc, link_doctype) {
+    return (
+        link_doctype === "Item" &&
+        !!doc &&
+        doc.parenttype === "BOM" &&
+        PC_BOM_CHILD_DOCTYPES.includes(doc.doctype)
+    );
+}
+
+
+function pc_get_known_item_name(item_code, row) {
+    const names = frappe.pc_bom_item_names.names;
+
+    if (names[item_code]) {
+        return names[item_code];
+    }
+
+    if (row && row.item_code === item_code && row.item_name) {
+        return row.item_name;
+    }
+
+    return null;
+}
+
+
+function pc_fetch_item_name(item_code) {
+    const cache = frappe.pc_bom_item_names;
+
+    if (cache.names[item_code]) {
+        return Promise.resolve(cache.names[item_code]);
+    }
+
+    if (!cache.requests[item_code]) {
+        cache.requests[item_code] = frappe.db
+            .get_value("Item", item_code, "item_name")
+            .then((r) => {
+                const item_name = (r && r.message && r.message.item_name) || item_code;
+                cache.names[item_code] = item_name;
+                return item_name;
+            })
+            .catch(() => item_code)
+            .finally(() => {
+                delete cache.requests[item_code];
+            });
+    }
+
+    return cache.requests[item_code];
+}
+
+
+// Load names for every item used in this BOM in one call, then
+// redraw the tables so the grid shows names instead of codes.
+async function pc_load_bom_item_names(frm) {
+    const names = frappe.pc_bom_item_names.names;
+    const missing = new Set();
+
+    PC_BOM_CHILD_TABLES.forEach((table) => {
+        (frm.doc[table] || []).forEach((row) => {
+            PC_BOM_ITEM_LINK_FIELDS.forEach((fieldname) => {
+                const item_code = row[fieldname];
+
+                if (item_code && !names[item_code]) {
+                    missing.add(item_code);
+                }
+            });
+        });
+    });
+
+    if (!missing.size) {
+        return;
+    }
+
+    const items = await frappe.db.get_list("Item", {
+        filters: { name: ["in", Array.from(missing)] },
+        fields: ["name", "item_name"],
+        limit: missing.size,
+    });
+
+    (items || []).forEach((item) => {
+        names[item.name] = item.item_name || item.name;
+    });
+
+    PC_BOM_CHILD_TABLES.forEach((table) => frm.refresh_field(table));
+}
+
+
+// ------------------------------------------------------------
+// Read-only display (grid cells, submitted BOM)
+// ------------------------------------------------------------
+
+if (!frappe.pc_bom_item_names.formatter_patched) {
+    const erpnext_item_formatter = frappe.form.link_formatters["Item"];
+
+    frappe.form.link_formatters["Item"] = function (value, doc, docfield) {
+        if (value && pc_is_bom_child_item_link(doc, "Item")) {
+            const item_name = pc_get_known_item_name(value, doc);
+
+            if (item_name) {
+                return item_name;
+            }
+        }
+
+        return erpnext_item_formatter
+            ? erpnext_item_formatter(value, doc, docfield)
+            : value;
+    };
+
+    frappe.pc_bom_item_names.formatter_patched = true;
+}
+
+
+// ------------------------------------------------------------
+// Input box while a row is being edited
+//
+// Same approach Frappe uses for "Show Title in Link Fields", but
+// only for these controls: the input shows the Item Name and
+// maps it back to the Item Code, so the saved value is unchanged.
+// ------------------------------------------------------------
+
+if (!frappe.pc_bom_item_names.control_patched) {
+    const original_set_link_title = frappe.ui.form.ControlLink.prototype.set_link_title;
+
+    frappe.ui.form.ControlLink.prototype.set_link_title = async function (value) {
+        if (value && pc_is_bom_child_item_link(this.doc, this.get_options())) {
+            const item_name = await pc_fetch_item_name(value);
+
+            // skip if the field changed while the name was loading
+            if (this.value === value) {
+                this.translate_and_set_input_value(item_name, value);
+            }
+
+            return;
+        }
+
+        return original_set_link_title.call(this, value);
+    };
+
+    frappe.pc_bom_item_names.control_patched = true;
+}
+
+
+frappe.ui.form.on("BOM", {
+    refresh(frm) {
+        pc_load_bom_item_names(frm);
+    },
+});
