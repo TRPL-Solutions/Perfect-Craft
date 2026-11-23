@@ -1,0 +1,28 @@
+{
+    "custom_fields": [
+        {
+            "creation": "2026-11-23 12:00:00.000000",
+            "doctype": "Custom Field",
+            "dt": "Pricing Rule",
+            "fieldname": "custom_customer_referral",
+            "fieldtype": "Link",
+            "insert_after": "title",
+            "is_system_generated": 0,
+            "label": "Customer Referral",
+            "modified": "2026-11-23 12:00:00.000000",
+            "modified_by": "Administrator",
+            "module": "PC Production",
+            "name": "Pricing Rule-custom_customer_referral",
+            "no_copy": 1,
+            "options": "Customer Referral",
+            "owner": "Administrator",
+            "read_only": 1,
+            "search_index": 1
+        }
+    ],
+    "custom_perms": [],
+    "doctype": "Pricing Rule",
+    "links": [],
+    "property_setters": [],
+    "sync_on_migrate": 1
+}
