@@ -343,8 +343,14 @@ doctype_js = {
     "Stock Reconciliation": "public/js/stock_reconciliation.js",
     "BOM": "pc_production/doctype/bom/bom.js",
 
-    "Delivery Note":
+    "Delivery Note": [
         "pc_production/doctype/delivery_note/delivery_note.js",
+        "public/js/uom_pricing_rule_fix.js",
+    ],
+    # Removes a row's UOM-specific Pricing Rule discount when its UOM changes
+    "Quotation": "public/js/uom_pricing_rule_fix.js",
+    "Sales Order": "public/js/uom_pricing_rule_fix.js",
+    "Sales Invoice": "public/js/uom_pricing_rule_fix.js",
     "Delivery Trip":
         "pc_production/doctype/delivery_trip/delivery_trip.js",
     "Work Order":
