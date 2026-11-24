@@ -1,0 +1,97 @@
+{%
+	var rows = (typeof original_data !== "undefined" && original_data && original_data.length ? original_data : data) || [];
+	var cols = columns || [];
+	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
+	var num = function (v) {
+		v = flt(v);
+		return format_number(v, null, Math.abs(v - Math.round(v)) < 0.005 ? 0 : 2);
+	};
+	var is_num = function (c) { return ["Float", "Int", "Currency"].indexOf(c.fieldtype) !== -1; };
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (c.fieldname === "rank") { return v ? esc(v) : ""; }
+		return is_num(c) ? (v == null || v === "" ? "" : num(v)) : esc(v);
+	};
+	var now = moment();
+	/* Title parts come from the Monthly Average row (recovery_report.get_report_header). */
+	var header = {};
+	for (var k = 0; k < rows.length; k++) { if (rows[k].row_type === "monthly_average") { header = rows[k]; } }
+	var title = [header.company_name || filters.company, header.fiscal_year].filter(Boolean).join(" ");
+	var subtitle = filters.group_by === "Customer" ? "Customer Wise Sales Report" : "City Wise Sales Report";
+	var list = function (v) { return Array.isArray(v) ? v.join(", ") : (v || ""); };
+	var applied = [];
+	var labels = [["city", "City"], ["territory", "Region"], ["area", "Area"], ["sales_person", "Sales Officer"], ["brand", "Brand"], ["sku", "SKU"], ["customer", "Customer"]];
+	for (var f = 0; f < labels.length; f++) { if (list(filters[labels[f][0]])) { applied.push(labels[f][1] + ": " + list(filters[labels[f][0]])); } }
+	/* Text columns get fixed widths; the quantity columns share the rest. */
+	var text_widths = { rank: 3, name: 14, region: 7, city: 6, sales_officer: 8 };
+	var used = 0, num_cols = 0;
+	for (var c = 0; c < cols.length; c++) { if (text_widths[cols[c].fieldname]) { used += text_widths[cols[c].fieldname]; } else { num_cols += 1; } }
+	var num_width = num_cols ? Math.max((100 - used) / num_cols, 3) : 0;
+%}
+<style>
+	@page {
+		size: A4 landscape;
+		margin: 8mm 8mm 12mm 8mm;
+		@bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; }
+	}
+	.print-format { padding: 0 !important; max-width: none !important; font-size: 7pt; }
+	.cw-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; }
+	.cw-table thead { display: table-header-group; }
+	.cw-table td, .cw-table th { padding: 2px 3px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
+	.cw-head td { border: none; padding: 0 0 6px 0; }
+	.cw-head .cw-company { font-size: 15pt; font-weight: bold; text-decoration: underline; text-align: center; }
+	.cw-head .cw-city { font-size: 10pt; font-weight: bold; text-align: center; }
+	.cw-head .cw-title { font-size: 13pt; text-decoration: underline; text-align: center; }
+	.cw-head .cw-range { font-size: 9pt; text-align: center; }
+	.cw-head .cw-meta { font-size: 8pt; }
+	.cw-head .cw-filters { font-size: 7pt; color: #555; text-align: center; }
+	.cw-cols th { border-top: 2px solid #000; border-bottom: 2px solid #000; background: #eee; font-weight: bold; text-align: left; }
+	.cw-cols th.cw-num { text-align: right; }
+	.cw-table td.cw-num { text-align: right; white-space: nowrap; }
+	.cw-line td { border-bottom: 1px dotted #888; }
+	.cw-total td { font-weight: bold; padding-top: 4px; border-top: 2px solid #000; }
+	.cw-average td { font-weight: bold; border-bottom: 3px double #000; }
+</style>
+
+<table class="cw-table">
+	<colgroup>
+		{% for (var w = 0; w < cols.length; w++) { %}<col style="width: {{ text_widths[cols[w].fieldname] || num_width }}%;">{% } %}
+	</colgroup>
+	<thead>
+		<tr class="cw-head">
+			<td colspan="{{ cols.length }}">
+				<table style="width: 100%;">
+					<tr>
+						<td class="cw-meta" style="width: 18%; vertical-align: middle;">{{ now.format("DD-MMM-YYYY") }}<br>{{ now.format("h:mm:ssA") }}</td>
+						<td style="width: 64%;">
+							<div class="cw-company">{{ esc(title) }}</div>
+							{% if (header.company_city) { %}<div class="cw-city">{{ esc(header.company_city) }}</div>{% } %}
+							<div class="cw-title">{{ subtitle }}</div>
+							<div class="cw-range">From : {{ esc(filters.from_month) }} {{ esc(filters.from_year) }} &nbsp; To : {{ esc(filters.to_month) }} {{ esc(filters.to_year) }} &nbsp; (Cartons)</div>
+							<div class="cw-filters">{{ esc(applied.join(" | ")) }}</div>
+						</td>
+						<td class="cw-meta" style="width: 18%; text-align: right; vertical-align: middle;"><i>{{ esc(frappe.session.user_fullname || frappe.session.user) }}</i></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr class="cw-cols">
+			{% for (var h = 0; h < cols.length; h++) { %}
+			<th class="{{ is_num(cols[h]) ? 'cw-num' : '' }}">{{ esc(cols[h].label) }}</th>
+			{% } %}
+		</tr>
+	</thead>
+
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr><td colspan="{{ cols.length || 1 }}" style="text-align: center; padding: 20px;">No sales found for the selected filters.</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		<tr class="{{ r.row_type === 'month_total' ? 'cw-total' : (r.row_type === 'monthly_average' ? 'cw-average' : 'cw-line') }}" style="break-inside: avoid;">
+			{% for (var j = 0; j < cols.length; j++) { %}
+			<td class="{{ is_num(cols[j]) ? 'cw-num' : '' }}">{{ cell(r, cols[j]) }}</td>
+			{% } %}
+		</tr>
+	{% } %}
+	</tbody>
+</table>
