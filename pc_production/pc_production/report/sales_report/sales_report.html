@@ -1,5 +1,5 @@
 {%
-	var rows = (original_data && original_data.length ? original_data : data) || [];
+	var rows = (typeof original_data !== "undefined" && original_data && original_data.length ? original_data : data) || [];
 	var is_detail = filters.report_type === "Detail";
 	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
 	var num = function (v) {
