@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "sku_name",
-  "item_group"
+  "item_group",
+  "sort_order"
  ],
  "fields": [
   {
@@ -26,11 +27,19 @@
    "in_standard_filter": 1,
    "label": "Item Group",
    "options": "Item Group"
+  },
+  {
+   "description": "Column order in reports (1 first). Blank sorts last.",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sort Order",
+   "non_negative": 1
   }
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-24 19:00:00.000000",
+ "modified": "2026-11-24 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "PC Production",
  "name": "SKU",
@@ -65,7 +74,7 @@
    "role": "Sales User"
   }
  ],
- "sort_field": "sku_name",
+ "sort_field": "sort_order",
  "sort_order": "ASC",
  "states": [],
  "track_changes": 1

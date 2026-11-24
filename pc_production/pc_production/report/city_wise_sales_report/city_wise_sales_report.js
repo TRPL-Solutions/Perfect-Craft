@@ -118,7 +118,7 @@ frappe.query_reports["City Wise Sales Report"] = {
 };
 
 // Not Link fields: the report is open to every desk user, and most have no permission on
-// these doctypes (see city_wise_sales_report.get_filter_options).
+// these doctypes (see report_utils.get_filter_options).
 function pc_cws_multi(fieldname, label, doctype) {
 	return {
 		fieldname,
@@ -127,7 +127,7 @@ function pc_cws_multi(fieldname, label, doctype) {
 		get_data: (txt) =>
 			frappe
 				.call({
-					method: "pc_production.pc_production.report.city_wise_sales_report.city_wise_sales_report.get_filter_options",
+					method: "pc_production.pc_production.report_utils.get_filter_options",
 					args: { doctype, txt },
 				})
 				.then((r) =>
