@@ -1,9 +1,14 @@
 # Copyright (c) 2026, TRPL Solutions and contributors
 # For license information, please see license.txt
 
-"""City Wise Sales Report: cartons sold per month, by City or by Customer.
+"""City Wise Sales Report: cartons sold per month name, by City or by Customer.
 
-Source        Submitted Sales Invoices in the month range; credit notes count negative.
+Period        From/To Year and From/To Month, like the client's Excel: every selected month in
+              every selected calendar year. 2025-2026, Jan-Feb = Jan 2025, Feb 2025, Jan 2026,
+              Feb 2026. From Month after To Month wraps over the year end (Jul-Feb = Jul..Dec,
+              Jan, Feb of each selected year).
+Columns       One per month NAME, summing that month over all selected years.
+Source        Submitted Sales Invoices; credit notes count negative.
 Cartons       stock_qty / the item's "Carton" UOM factor (Sales Person Target Achievement's
               get_carton_factors). Items without a Carton UOM go to "Qty without Carton UOM"
               (stock UOM), shown only when not zero.
@@ -12,7 +17,8 @@ Rows          City (customer's primary Address) or Customer. Ranked by Total CTN
 Sales Officer The invoice's Sales Team. Quantities are split by allocated_percentage only when
               the Sales Officer filter is used; otherwise every row keeps its full quantity.
 Brand / SKU   Item.brand / Item.custom_sku (filters only).
-Per Month Avg Total CTN / number of months. "Monthly Average" footer = month total / rows.
+Per Month Avg Total CTN / months covered (months x years). "Monthly Average" footer = month
+              total / rows.
 """
 
 import calendar
@@ -40,26 +46,30 @@ from pc_production.pc_production.report.sales_report.sales_report import (
 	set_customer_geography,
 )
 
-MAX_MONTHS = 24
+MAX_YEARS = 10
 MONTHS = list(calendar.month_name)[1:]
-MULTI_FILTERS = ("city", "territory", "area", "sales_person", "brand", "sku")
+MULTI_FILTERS = ("city", "territory", "area", "sales_person", "brand", "sku", "customer")
+CHART_TOP = 10
 QTY_TOLERANCE = 0.0005
+EN_DASH, TIMES, DIVIDE = "\u2013", "\u00d7", "\u00f7"
 
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	validate_filters(filters)
 
-	months = get_months(filters)
-	lines = get_invoice_lines(filters)
-	rows = build_rows(lines, months, filters)
+	period = get_period(filters)
+	lines = get_invoice_lines(filters, period)
+	rows = build_rows(lines, period, filters)
 	has_unconverted = any(abs(row.unconverted_qty) > QTY_TOLERANCE for row in rows)
 
-	return get_columns(months, filters, has_unconverted), get_data(rows, months, filters, has_unconverted)
+	columns = get_columns(period, filters, has_unconverted)
+	data = get_data(rows, period, filters, has_unconverted)
+	return columns, data, None, get_chart(rows, period, filters)
 
 
 # ============================================================
-# FILTERS AND MONTHS
+# FILTERS AND PERIOD
 # ============================================================
 
 
@@ -71,17 +81,14 @@ def validate_filters(filters):
 	if filters.group_by not in ("City", "Customer"):
 		frappe.throw(_("Group By must be City or Customer"))
 
-	start = (get_year(filters, "from_year"), get_month(filters, "from_month"))
-	end = (get_year(filters, "to_year"), get_month(filters, "to_month"))
-	if start > end:
-		frappe.throw(_("From Year/Month cannot be after To Year/Month"))
+	filters.from_year, filters.to_year = get_year(filters, "from_year"), get_year(filters, "to_year")
+	if filters.from_year > filters.to_year:
+		frappe.throw(_("From Year cannot be after To Year"))
+	if filters.to_year - filters.from_year + 1 > MAX_YEARS:
+		frappe.throw(_("Select at most {0} years").format(MAX_YEARS))
 
-	count = (end[0] - start[0]) * 12 + end[1] - start[1] + 1
-	if count > MAX_MONTHS:
-		frappe.throw(_("Select at most {0} months (selected: {1})").format(MAX_MONTHS, count))
-
-	filters.from_date = getdate(f"{start[0]}-{start[1]:02d}-01")
-	filters.to_date = getdate(f"{end[0]}-{end[1]:02d}-{calendar.monthrange(*end)[1]:02d}")
+	filters.from_month_no = get_month(filters, "from_month")
+	filters.to_month_no = get_month(filters, "to_month")
 
 	for fieldname in MULTI_FILTERS:
 		filters[fieldname] = get_list(filters.get(fieldname))
@@ -112,18 +119,44 @@ def get_list(value):
 	return [v for v in value if v]
 
 
-def get_months(filters):
-	months, year, month = [], filters.from_date.year, filters.from_date.month
-	while (year, month) <= (filters.to_date.year, filters.to_date.month):
-		months.append(
-			frappe._dict(
-				key=(year, month),
-				fieldname=f"m_{year}_{month:02d}",
-				label=f"{calendar.month_abbr[month]}-{str(year)[2:]}",
-			)
-		)
-		year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-	return months
+def get_period(filters):
+	"""Selected month numbers in column order (wrapping over the year end) and the years."""
+	start, end = filters.from_month_no, filters.to_month_no
+	numbers = list(range(start, end + 1)) if start <= end else [*range(start, 13), *range(1, end + 1)]
+	years = list(range(filters.from_year, filters.to_year + 1))
+	months = [frappe._dict(number=n, fieldname=f"m_{n:02d}", label=calendar.month_abbr[n]) for n in numbers]
+	period = frappe._dict(
+		months=months,
+		numbers=numbers,
+		years=years,
+		count=len(numbers) * len(years),
+		label=get_period_label(numbers, years),
+	)
+	# Header (company / fiscal year lookup) spans the selected calendar years.
+	filters.from_date = getdate(f"{years[0]}-01-01")
+	filters.to_date = getdate(f"{years[-1]}-12-31")
+	return period
+
+
+def get_period_label(numbers, years):
+	"""e.g. "Jul-Nov, 2025-2026" (with en dashes), "Aug, 2026"."""
+	first, last = calendar.month_abbr[numbers[0]], calendar.month_abbr[numbers[-1]]
+	month_part = first if first == last else f"{first}{EN_DASH}{last}"
+	year_part = str(years[0]) if len(years) == 1 else f"{years[0]}{EN_DASH}{years[-1]}"
+	return f"{month_part}, {year_part}"
+
+
+def get_average_description(period):
+	months, years = len(period.numbers), len(period.years)
+	return _("Total CTN {0} {1} months covered ({2} {3} {4} {5} {6})").format(
+		DIVIDE,
+		period.count,
+		months,
+		_("month") if months == 1 else _("months"),
+		TIMES,
+		years,
+		_("year") if years == 1 else _("years"),
+	)
 
 
 # ============================================================
@@ -131,17 +164,23 @@ def get_months(filters):
 # ============================================================
 
 
-def get_invoice_lines(filters):
+def get_invoice_lines(filters, period):
 	conditions = [
 		"si.docstatus = 1",
 		"si.company = %(company)s",
 		"si.posting_date between %(from_date)s and %(to_date)s",
+		"month(si.posting_date) in %(months)s",
 	]
-	values = {"company": filters.company, "from_date": filters.from_date, "to_date": filters.to_date}
+	values = {
+		"company": filters.company,
+		"from_date": filters.from_date,
+		"to_date": filters.to_date,
+		"months": period.numbers,
+	}
 
 	if filters.customer:
-		values["customer"] = filters.customer
-		conditions.append("si.customer = %(customer)s")
+		values["customers"] = filters.customer
+		conditions.append("si.customer in %(customers)s")
 
 	if filters.territory:
 		values["territories"] = descendants_of("Territory", filters.territory)
@@ -217,9 +256,8 @@ def set_sales_officers(lines, filters):
 			line.officers = [sp for sp, _factor in kept]
 
 
-def build_rows(lines, months, filters):
+def build_rows(lines, period, filters):
 	by_customer = filters.group_by == "Customer"
-	month_index = {month.key: month.fieldname for month in months}
 	rows = {}
 
 	for line in lines:
@@ -237,9 +275,8 @@ def build_rows(lines, months, filters):
 				unconverted_qty=0,
 			)
 
-		date = getdate(line.posting_date)
 		cartons = line.cartons * line.factor
-		row.months[month_index[(date.year, date.month)]] += cartons
+		row.months[f"m_{getdate(line.posting_date).month:02d}"] += cartons
 		row.total += cartons
 		row.unconverted_qty += line.unconverted_qty * line.factor
 		row.officers.update(line.officers)
@@ -254,12 +291,12 @@ def build_rows(lines, months, filters):
 	return visible
 
 
-def get_data(rows, months, filters, has_unconverted):
+def get_data(rows, period, filters, has_unconverted):
 	if not rows:
 		return []
 
 	by_customer = filters.group_by == "Customer"
-	month_count = len(months)
+	months = period.months
 	data = []
 
 	for rank, row in enumerate(rows, start=1):
@@ -269,7 +306,7 @@ def get_data(rows, months, filters, has_unconverted):
 			"name": row.name,
 			**{month.fieldname: row.months.get(month.fieldname, 0) for month in months},
 			"total": row.total,
-			"average": row.total / month_count,
+			"average": row.total / period.count,
 		}
 		if by_customer:
 			line.update(
@@ -292,7 +329,7 @@ def get_data(rows, months, filters, has_unconverted):
 		"bold": 1,
 		**totals,
 		"total": grand_total,
-		"average": grand_total / month_count,
+		"average": grand_total / period.count,
 	}
 	average_line = {
 		"row_type": "monthly_average",
@@ -300,9 +337,12 @@ def get_data(rows, months, filters, has_unconverted):
 		"bold": 1,
 		**{fieldname: amount / len(rows) for fieldname, amount in totals.items()},
 		"total": grand_total / len(rows),
-		"average": grand_total / month_count / len(rows),
-		# Read by the print layout for its title lines.
+		"average": grand_total / period.count / len(rows),
+		# Read by the print layout for its header and notes.
 		**get_report_header(filters),
+		"period_label": period.label,
+		"average_description": get_average_description(period),
+		"row_count": len(rows),
 	}
 	if has_unconverted:
 		total_line["unconverted_qty"] = unconverted
@@ -311,11 +351,19 @@ def get_data(rows, months, filters, has_unconverted):
 	return [*data, total_line, average_line]
 
 
-def get_columns(months, filters, has_unconverted):
-	def qty(label, fieldname, width=90):
-		return {"label": label, "fieldname": fieldname, "fieldtype": "Float", "precision": 2, "width": width}
+def get_columns(period, filters, has_unconverted):
+	def qty(label, fieldname, width=80, **extra):
+		# Whole cartons on screen and in print; values keep their decimals.
+		return {
+			"label": label,
+			"fieldname": fieldname,
+			"fieldtype": "Float",
+			"precision": 0,
+			"width": width,
+			**extra,
+		}
 
-	columns = [{"label": _("Rank"), "fieldname": "rank", "fieldtype": "Int", "width": 60}]
+	columns = [{"label": _("Rank"), "fieldname": "rank", "fieldtype": "Int", "width": 50}]
 	if filters.group_by == "Customer":
 		columns += [
 			{"label": _("A/c. Title"), "fieldname": "name", "fieldtype": "Data", "width": 220},
@@ -324,14 +372,40 @@ def get_columns(months, filters, has_unconverted):
 			{"label": _("Sales Officer"), "fieldname": "sales_officer", "fieldtype": "Data", "width": 140},
 		]
 	else:
-		columns.append({"label": _("City"), "fieldname": "name", "fieldtype": "Data", "width": 160})
+		columns.append({"label": _("City"), "fieldname": "name", "fieldtype": "Data", "width": 170})
 
-	columns += [qty(month.label, month.fieldname) for month in months]
-	columns += [qty(_("Total CTN"), "total", 100), qty(_("Per Month Avg"), "average", 110)]
+	columns += [qty(_(month.label), month.fieldname) for month in period.months]
+	columns += [
+		qty(_("Total CTN"), "total", 100),
+		qty(_("Per Month Avg"), "average", 110, description=get_average_description(period)),
+	]
 	if has_unconverted:
 		# Items without a Carton UOM: stock UOM, not mixed into cartons.
-		columns.append(qty(_("Qty without Carton UOM"), "unconverted_qty", 150))
+		columns.append(qty(_("Qty without Carton UOM"), "unconverted_qty", 160))
 	return columns
+
+
+def get_chart(rows, period, filters):
+	if not rows:
+		return None
+
+	if filters.chart == "Top 10":
+		top = rows[:CHART_TOP]
+		labels = [row.name for row in top]
+		values = [flt(row.total, 0) for row in top]
+		name = _("Top {0} by Total CTN").format(len(top))
+	else:
+		labels = [_(month.label) for month in period.months]
+		values = [flt(sum(row.months.get(month.fieldname, 0) for row in rows), 0) for month in period.months]
+		name = _("Cartons")
+
+	return {
+		"data": {"labels": labels, "datasets": [{"name": name, "values": values}]},
+		"type": "bar",
+		"colors": ["#2490ef"],
+		"fieldtype": "Float",
+		"barOptions": {"spaceRatio": 0.4},
+	}
 
 
 # ============================================================
