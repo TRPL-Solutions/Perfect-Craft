@@ -19,6 +19,7 @@ from collections import defaultdict
 
 import frappe
 from frappe import _
+from frappe.contacts.doctype.address.address import get_default_address
 from frappe.utils import flt, getdate
 
 from pc_production.pc_production.report.sales_person_target_achievement.sales_person_target_achievement import (
@@ -346,11 +347,23 @@ def get_data(receipts, filters, currency):
 			"percentage": 100 if grand_total else 0,
 			"currency": currency,
 			"bold": 1,
-			# Read by the print layout for its "Perfect Craft <fiscal year>" title.
-			"fiscal_year": get_fiscal_year_label(filters),
+			# Read by the print layout for its title lines.
+			**get_report_header(filters),
 		}
 	)
 	return data
+
+
+def get_report_header(filters):
+	"""Print title parts: company name, its fiscal year(s) and the city of its address."""
+	address = get_default_address("Company", filters.company)
+	city = frappe.db.get_value("Address", address, "city") if address else None
+	return {
+		"company_name": frappe.get_cached_value("Company", filters.company, "company_name")
+		or filters.company,
+		"company_city": (city or "").strip(),
+		"fiscal_year": get_fiscal_year_label(filters),
+	}
 
 
 def get_fiscal_year_label(filters):

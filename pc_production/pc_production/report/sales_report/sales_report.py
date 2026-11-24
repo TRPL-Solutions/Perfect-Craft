@@ -9,6 +9,8 @@ from frappe.utils import flt, getdate
 
 UNASSIGNED = "Unassigned"
 NOT_AVAILABLE = "N/A"
+# Internal sales basis (not offered in this report's filter), used by Sales Vs Recovery Report.
+GRAND_TOTAL_BASIS = "Grand Total"
 
 
 def execute(filters=None):
@@ -69,7 +71,17 @@ def get_invoice_items(filters):
 		values["territories"] = get_descendants("Territory", filters.territory)
 		conditions.append("cust.territory in %(territories)s")
 
-	if filters.sales_basis == "Gross Sales":
+	if filters.sales_basis == GRAND_TOTAL_BASIS:
+		# Invoice grand total (with taxes) spread over its lines by net amount; equal
+		# shares when the net total is zero.
+		amount_field = """case when si.base_net_total <> 0
+			then sii.base_net_amount * si.base_grand_total / si.base_net_total
+			else si.base_grand_total / (
+				select count(*) from `tabSales Invoice Item` x
+				where x.parent = si.name and x.parenttype = 'Sales Invoice')
+			end"""
+		rate_field = "sii.base_net_rate"
+	elif filters.sales_basis == "Gross Sales":
 		amount_field, rate_field = "sii.base_amount", "sii.base_rate"
 	else:
 		amount_field, rate_field = "sii.base_net_amount", "sii.base_net_rate"

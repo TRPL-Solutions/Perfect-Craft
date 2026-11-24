@@ -1,5 +1,5 @@
 {%
-	var rows = (original_data && original_data.length ? original_data : data) || [];
+	var rows = (typeof original_data !== "undefined" && original_data && original_data.length ? original_data : data) || [];
 	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
 	var num = function (v) {
 		v = flt(v);
@@ -8,8 +8,10 @@
 	var pct = function (v) { return format_number(flt(v), null, 2) + "%"; };
 	var fdate = function (d, f) { return d ? moment(d).format(f) : ""; };
 	var now = moment();
-	var fiscal_year = "";
-	for (var k = 0; k < rows.length; k++) { if (rows[k].row_type === "grand_total") { fiscal_year = rows[k].fiscal_year || ""; } }
+	/* Title parts come from the grand total row (recovery_report.get_report_header). */
+	var header = {};
+	for (var k = 0; k < rows.length; k++) { if (rows[k].row_type === "grand_total") { header = rows[k]; } }
+	var title = [header.company_name || filters.company, header.fiscal_year].filter(Boolean).join(" ");
 	var applied = [];
 	if (filters.sales_person) { applied.push("Sales Man: " + filters.sales_person); }
 	if (filters.territory) { applied.push("Region: " + filters.territory); }
@@ -29,6 +31,7 @@
 	.rr-table td, .rr-table th { padding: 2px 4px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
 	.rr-head td { border: none; padding: 0 0 6px 0; }
 	.rr-head .rr-company { font-size: 15pt; font-weight: bold; text-decoration: underline; text-align: center; }
+	.rr-head .rr-city { font-size: 10pt; font-weight: bold; text-align: center; }
 	.rr-head .rr-title { font-size: 13pt; text-decoration: underline; text-align: center; }
 	.rr-head .rr-range { font-size: 9pt; text-align: center; }
 	.rr-head .rr-meta { font-size: 8pt; }
@@ -54,7 +57,8 @@
 					<tr>
 						<td class="rr-meta" style="width: 18%; vertical-align: middle;">{{ now.format("DD-MMM-YYYY") }}<br>{{ now.format("h:mm:ssA") }}</td>
 						<td style="width: 64%;">
-							<div class="rr-company">Perfect Craft {{ esc(fiscal_year) }}</div>
+							<div class="rr-company">{{ esc(title) }}</div>
+							{% if (header.company_city) { %}<div class="rr-city">{{ esc(header.company_city) }}</div>{% } %}
 							<div class="rr-title">Recovery Report</div>
 							<div class="rr-range">From : {{ fdate(filters.from_date, "DD-MMM-YYYY") }} &nbsp; To : {{ fdate(filters.to_date, "DD-MMM-YYYY") }}</div>
 							<div class="rr-filters">{{ esc(applied.join(" | ")) }}</div>
