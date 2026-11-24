@@ -1,0 +1,108 @@
+{%
+	var rows = (original_data && original_data.length ? original_data : data) || [];
+	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
+	var num = function (v) {
+		v = flt(v);
+		return format_number(v, null, Math.abs(v - Math.round(v)) < 0.005 ? 0 : 2);
+	};
+	var pct = function (v) { return format_number(flt(v), null, 2) + "%"; };
+	var fdate = function (d, f) { return d ? moment(d).format(f) : ""; };
+	var now = moment();
+	var fiscal_year = "";
+	for (var k = 0; k < rows.length; k++) { if (rows[k].row_type === "grand_total") { fiscal_year = rows[k].fiscal_year || ""; } }
+	var applied = [];
+	if (filters.sales_person) { applied.push("Sales Man: " + filters.sales_person); }
+	if (filters.territory) { applied.push("Region: " + filters.territory); }
+	if (filters.customer) { applied.push("Customer: " + filters.customer); }
+	if (filters.debtors_account) { applied.push("Debtors A/c.: " + filters.debtors_account); }
+	var widths = [6, 38, 17, 13, 15, 11];
+%}
+<style>
+	@page {
+		size: A4 portrait;
+		margin: 10mm 8mm 12mm 8mm;
+		@bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; }
+	}
+	.print-format { padding: 0 !important; max-width: none !important; font-size: 8pt; }
+	.rr-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8pt; }
+	.rr-table thead { display: table-header-group; }
+	.rr-table td, .rr-table th { padding: 2px 4px; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
+	.rr-head td { border: none; padding: 0 0 6px 0; }
+	.rr-head .rr-company { font-size: 15pt; font-weight: bold; text-decoration: underline; text-align: center; }
+	.rr-head .rr-title { font-size: 13pt; text-decoration: underline; text-align: center; }
+	.rr-head .rr-range { font-size: 9pt; text-align: center; }
+	.rr-head .rr-meta { font-size: 8pt; }
+	.rr-head .rr-filters { font-size: 7pt; color: #555; text-align: center; }
+	.rr-cols th { border-top: 2px solid #000; border-bottom: 2px solid #000; background: #eee; font-weight: bold; text-align: left; }
+	.rr-cols th.rr-num, .rr-table td.rr-num { text-align: right; white-space: nowrap; }
+	.rr-line td { border-bottom: 1px dotted #888; }
+	.rr-subtotal td { font-weight: bold; padding-top: 3px; padding-bottom: 5px; }
+	.rr-subtotal td.rr-sum { border-top: 1px solid #000; border-bottom: 1px solid #000; }
+	.rr-grand td { font-weight: bold; font-size: 9pt; padding-top: 6px; }
+	.rr-grand td.rr-sum { border-top: 2px solid #000; border-bottom: 3px double #000; }
+	.rr-sp td { color: #1a3fb3; font-weight: bold; font-size: 10pt; text-decoration: underline; padding-top: 6px; }
+</style>
+
+<table class="rr-table">
+	<colgroup>
+		{% for (var w = 0; w < widths.length; w++) { %}<col style="width: {{ widths[w] }}%;">{% } %}
+	</colgroup>
+	<thead>
+		<tr class="rr-head">
+			<td colspan="6">
+				<table style="width: 100%;">
+					<tr>
+						<td class="rr-meta" style="width: 18%; vertical-align: middle;">{{ now.format("DD-MMM-YYYY") }}<br>{{ now.format("h:mm:ssA") }}</td>
+						<td style="width: 64%;">
+							<div class="rr-company">Perfect Craft {{ esc(fiscal_year) }}</div>
+							<div class="rr-title">Recovery Report</div>
+							<div class="rr-range">From : {{ fdate(filters.from_date, "DD-MMM-YYYY") }} &nbsp; To : {{ fdate(filters.to_date, "DD-MMM-YYYY") }}</div>
+							<div class="rr-filters">{{ esc(applied.join(" | ")) }}</div>
+						</td>
+						<td class="rr-meta" style="width: 18%; text-align: right; vertical-align: middle;"><i>{{ esc(frappe.session.user_fullname || frappe.session.user) }}</i></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr class="rr-cols">
+			<th>S. #</th>
+			<th>A/c. Title</th>
+			<th>Region</th>
+			<th>City</th>
+			<th class="rr-num">Total Credit Amount</th>
+			<th class="rr-num">% of Recovery</th>
+		</tr>
+	</thead>
+
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr><td colspan="6" style="text-align: center; padding: 20px;">No recovery found for the selected filters.</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		{% if (r.row_type === "sales_person") { %}
+		<tr class="rr-sp" style="break-after: avoid; page-break-after: avoid;"><td colspan="6">{{ esc(r.customer_name) }}</td></tr>
+		{% } else if (r.row_type === "customer") { %}
+		<tr class="rr-line" style="break-inside: avoid;">
+			<td class="rr-num">{{ esc(r.sno) }}</td>
+			<td>{{ esc(r.customer_name) }}</td>
+			<td>{{ esc(r.region) }}</td>
+			<td>{{ esc(r.city) }}</td>
+			<td class="rr-num">{{ num(r.amount) }}</td>
+			<td class="rr-num">{{ pct(r.percentage) }}</td>
+		</tr>
+		{% } else if (r.row_type === "sales_person_total") { %}
+		<tr class="rr-subtotal" style="break-before: avoid; page-break-before: avoid;">
+			<td colspan="4" style="text-align: right;">{{ esc(r.customer_name) }}</td>
+			<td class="rr-num rr-sum">{{ num(r.amount) }}</td>
+			<td class="rr-num rr-sum">{{ pct(r.percentage) }}</td>
+		</tr>
+		{% } else if (r.row_type === "grand_total") { %}
+		<tr class="rr-grand" style="break-inside: avoid;">
+			<td colspan="4" style="text-align: right;">Grand Total:</td>
+			<td class="rr-num rr-sum">{{ num(r.amount) }}</td>
+			<td class="rr-num rr-sum">{{ pct(r.percentage) }}</td>
+		</tr>
+		{% } %}
+	{% } %}
+	</tbody>
+</table>
