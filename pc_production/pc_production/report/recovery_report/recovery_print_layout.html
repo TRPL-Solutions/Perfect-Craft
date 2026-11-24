@@ -1,0 +1,119 @@
+{%
+	/* Shared A4 portrait print layout (Crystal Reports style) of Recovery Report and Sales Vs
+	   Recovery Report. Each report's own .html sets pr_config (title, labels, widths) and then
+	   includes this file. Rows: sales_person (group heading), customer, sales_person_total,
+	   grand_total (also carries the header parts from recovery_report.get_report_header). */
+	var cfg = (typeof pr_config !== "undefined" && pr_config) || {};
+	var rows = (typeof original_data !== "undefined" && original_data && original_data.length ? original_data : data) || [];
+	var cols = columns || [];
+	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
+	var amount = function (v) { return format_number(flt(v), null, 0); };
+	var percent = function (v) { return format_number(flt(v), null, 2) + "%"; };
+	var is_amount = function (c) { return ["Currency", "Float", "Int"].indexOf(c.fieldtype) !== -1 && c.fieldname !== "sno"; };
+	var is_percent = function (c) { return c.fieldtype === "Percent"; };
+	var is_num = function (c) { return is_amount(c) || is_percent(c); };
+	var label_of = function (c) { return (cfg.labels && cfg.labels[c.fieldname]) || c.label || ""; };
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (v == null || v === "") { return ""; }
+		if (is_percent(c)) { return percent(v); }
+		if (is_amount(c)) { return amount(v); }
+		return esc(v);
+	};
+	var cls = function (c) { return c.fieldname === "sno" ? "pr-sno" : (is_num(c) ? "pr-num" : ""); };
+	var lead = 0;
+	while (lead < cols.length && !is_num(cols[lead])) { lead += 1; }
+	var info = {};
+	for (var k = 0; k < rows.length; k++) { if (rows[k].row_type === "grand_total") { info = rows[k]; } }
+	var title_line = [info.company_name || filters.company || "", info.fiscal_year || ""].join(" ").trim();
+	var fdate = function (d) { return d ? moment(d).format("DD-MMM-YYYY") : ""; };
+	var list = function (v) { return Array.isArray(v) ? v.join(", ") : (v || ""); };
+	var applied = [];
+	var filter_labels = [["sales_person", "Sales Man"], ["territory", "Region"], ["customer", "Customer"], ["debtors_account", "Debtors A/c."]];
+	for (var f = 0; f < filter_labels.length; f++) { if (list(filters[filter_labels[f][0]])) { applied.push(filter_labels[f][1] + ": " + list(filters[filter_labels[f][0]])); } }
+	var now = moment();
+	var printed_by = frappe.session.user_fullname || frappe.session.user;
+%}
+<style>
+	@page {
+		size: A4 portrait;
+		margin: 12mm 9mm 10mm 9mm;
+		@top-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; }
+	}
+	.print-format { padding: 0 !important; max-width: none !important; font-family: Arial, Helvetica, sans-serif; color: #000; }
+	.pr-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: {{ cfg.font_size || "8pt" }}; }
+	.pr-table thead { display: table-header-group; }
+	.pr-table td, .pr-table th { padding: 2px 4px; vertical-align: top; overflow-wrap: anywhere; }
+	.pr-head td { border: none; padding: 0 0 6px 0; }
+	.pr-head .pr-left, .pr-head .pr-right { font-size: 8pt; vertical-align: top; }
+	.pr-head .pr-right { text-align: right; font-style: italic; }
+	.pr-company { font-size: 15pt; font-weight: bold; text-decoration: underline; text-align: center; }
+	.pr-location { font-size: 9.5pt; font-weight: bold; text-align: center; margin-top: 1px; }
+	.pr-title { font-size: 12.5pt; font-weight: bold; text-decoration: underline; text-align: center; margin-top: 3px; }
+	.pr-range { font-size: 9pt; text-align: center; margin-top: 2px; }
+	.pr-filters { font-size: 7pt; text-align: center; color: #444; margin-top: 2px; }
+	.pr-cols th { background: #e6e6e6; font-weight: bold; text-align: left; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; }
+	.pr-cols th:first-child { border-left: 1.5px solid #000; }
+	.pr-cols th:last-child { border-right: 1.5px solid #000; }
+	.pr-cols th.pr-num { text-align: right; }
+	.pr-cols th.pr-sno { text-align: center; }
+	.pr-table td.pr-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+	.pr-table td.pr-sno { text-align: center; }
+	.pr-group td { color: #1a3fb3; font-weight: bold; text-decoration: underline; font-size: 9.5pt; padding-top: 8px; padding-bottom: 3px; }
+	.pr-line td { border-bottom: 1px dotted #777; }
+	.pr-subtotal td { font-weight: bold; padding-top: 4px; padding-bottom: 6px; }
+	.pr-subtotal td.pr-label { text-align: right; }
+	.pr-subtotal .pr-person { text-transform: uppercase; }
+	.pr-subtotal td.pr-num { text-decoration: underline; }
+	.pr-grand td { font-weight: bold; font-size: 9pt; padding-top: 8px; }
+	.pr-grand td.pr-label { text-align: right; }
+	.pr-grand td.pr-num { border-top: 1.5px solid #000; border-bottom: 3px double #000; }
+	.pr-empty td { text-align: center; padding: 24px; font-style: italic; border: 1px dotted #777; }
+</style>
+
+<table class="pr-table">
+	<colgroup>
+		{% for (var w = 0; w < cols.length; w++) { %}<col style="width: {{ (cfg.widths && cfg.widths[cols[w].fieldname]) || 10 }}%;">{% } %}
+	</colgroup>
+	<thead>
+		<tr class="pr-head">
+			<td colspan="{{ cols.length || 1 }}">
+				<table style="width: 100%; border-collapse: collapse;">
+					<tr>
+						<td class="pr-left" style="width: 20%;">{{ now.format("DD-MMM-YYYY") }}<br>{{ now.format("h:mm:ss A") }}</td>
+						<td style="width: 60%;">
+							<div class="pr-company">{{ esc(title_line) }}</div>
+							{% if (info.company_location || info.company_city) { %}<div class="pr-location">{{ esc(info.company_location || info.company_city) }}</div>{% } %}
+							<div class="pr-title">{{ esc(cfg.title || "") }}</div>
+							<div class="pr-range">From : {{ fdate(filters.from_date) }} &nbsp;&nbsp; To : {{ fdate(filters.to_date) }}</div>
+							{% if (applied.length) { %}<div class="pr-filters">{{ esc(applied.join("  |  ")) }}</div>{% } %}
+						</td>
+						<td class="pr-right" style="width: 20%;"><br>{{ esc(printed_by) }}</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr class="pr-cols">
+			{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ cls(cols[h]) }}">{{ esc(label_of(cols[h])) }}</th>{% } %}
+		</tr>
+	</thead>
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr class="pr-empty"><td colspan="{{ cols.length || 1 }}">No records for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		{% if (r.row_type === "sales_person") { %}
+		<tr class="pr-group" style="break-inside: avoid; break-after: avoid; page-break-after: avoid;"><td colspan="{{ cols.length || 1 }}">{{ esc(r.sales_person || r.customer_name) }}</td></tr>
+		{% } else if (r.row_type === "customer") { %}
+		<tr class="pr-line" style="break-inside: avoid;">
+			{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ cls(cols[j]) }}">{{ cell(r, cols[j]) }}</td>{% } %}
+		</tr>
+		{% } else if (r.row_type === "sales_person_total" || r.row_type === "grand_total") { %}
+		<tr class="{{ r.row_type === 'grand_total' ? 'pr-grand' : 'pr-subtotal' }}" style="break-inside: avoid; break-before: avoid; page-break-before: avoid;">
+			{% if (lead) { %}<td class="pr-label" colspan="{{ lead }}">{{ r.row_type === "grand_total" ? "Grand Total:" : "<span class=\"pr-person\">" + esc(r.sales_person || "") + "</span>&nbsp;&nbsp;&nbsp;Total:" }}</td>{% } %}
+			{% for (var x = lead; x < cols.length; x++) { %}<td class="{{ cls(cols[x]) }}">{{ cell(r, cols[x]) }}</td>{% } %}
+		</tr>
+		{% } %}
+	{% } %}
+	</tbody>
+</table>

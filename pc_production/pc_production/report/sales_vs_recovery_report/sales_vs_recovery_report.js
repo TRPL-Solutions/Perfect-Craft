@@ -54,6 +54,16 @@ frappe.query_reports["Sales Vs Recovery Report"] = {
 		},
 	],
 
+	onload(report) {
+		// Prints the rows already loaded with the current filters (no re-query), using this
+		// report's print template; Menu > Print keeps working as well.
+		report.page.set_primary_action(
+			__("Print Report"),
+			() => report.print_report({ orientation: "Portrait", with_letter_head: 0 }),
+			"printer"
+		);
+	},
+
 	formatter(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (!data) return value;

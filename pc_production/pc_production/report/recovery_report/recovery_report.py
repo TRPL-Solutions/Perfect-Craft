@@ -355,13 +355,18 @@ def get_data(receipts, filters, currency):
 
 
 def get_report_header(filters):
-	"""Print title parts: company name, its fiscal year(s) and the city of its address."""
+	"""Print title parts: company name, its fiscal year(s), the city of its address and a
+	location line "<Area>, <City>" (e.g. "SITE, Karachi"; just the city without an Area)."""
 	address = get_default_address("Company", filters.company)
-	city = frappe.db.get_value("Address", address, "city") if address else None
+	fields = ["city"] + (["custom_area"] if frappe.get_meta("Address").has_field("custom_area") else [])
+	values = frappe.db.get_value("Address", address, fields, as_dict=True) if address else None
+	city = ((values or {}).get("city") or "").strip()
+	area = ((values or {}).get("custom_area") or "").strip()
 	return {
 		"company_name": frappe.get_cached_value("Company", filters.company, "company_name")
 		or filters.company,
-		"company_city": (city or "").strip(),
+		"company_city": city,
+		"company_location": ", ".join(part for part in (area, city) if part),
 		"fiscal_year": get_fiscal_year_label(filters),
 	}
 
