@@ -531,7 +531,13 @@ def get_columns(by_item_group, has_unconverted):
 			"precision": 2,
 			"width": 140,
 		},
-		{"label": _("Achievement %"), "fieldname": "achievement", "fieldtype": "Percent", "width": 120},
+		{
+			"label": _("Achievement %"),
+			"fieldname": "achievement",
+			"fieldtype": "Percent",
+			"precision": 2,
+			"width": 120,
+		},
 		{
 			"label": _("Invoiced Amount"),
 			"fieldname": "invoiced_amount",
