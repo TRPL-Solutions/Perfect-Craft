@@ -1,9 +1,9 @@
 {%
 	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
 	   the page header and footer and shrinks the font until all SKU columns fit the page width.
-	   Two header rows: consecutive columns with the same group_label share one top cell (Brand over
-	   SKU). Rows: month, then total / average / max / min / share; the last row carries the notes,
-	   max / min mark the best and worst month per column. */
+	   Two header rows (pp.thead): consecutive columns with the same group_label share one top cell
+	   (Brand over SKU). Rows: month, then total / average / max / min / share; the last row carries
+	   the notes, max / min mark the best and worst month per column. */
 	var rows = data || [];
 	var cols = columns || [];
 	var info = {}, max_row = {}, min_row = {};
@@ -32,37 +32,14 @@
 	};
 	var cls = function (c) { return c.fieldname === "sr" ? "pp-c" : (is_num(c) ? "pp-num" : ""); };
 	var foot_class = { total: "pp-grand", average: "pp-foot", max: "pp-foot", min: "pp-foot", share: "pp-foot" };
-	var groups = [];
-	for (var g = 0; g < cols.length; g++) {
-		var gl = cols[g].group_label || "";
-		var last = groups.length ? groups[groups.length - 1] : null;
-		if (gl && last && last.label === gl) { last.span += 1; } else { groups.push({ label: gl, span: 1, col: cols[g] }); }
-	}
-	var has_groups = false;
-	for (var h = 0; h < groups.length; h++) { if (groups[h].label) { has_groups = true; } }
-	/* Last cell of the second header row: only gets the outer right border when it is the last column. */
-	var last_grouped = -1;
-	for (var lg = 0; lg < cols.length; lg++) { if (cols[lg].group_label) { last_grouped = lg; } }
+	/* Short print labels (as in City Wise): long words in narrow columns would shrink the whole table. */
+	var labels = { sr: "SR", unconverted_qty: "Qty w/o Carton UOM" };
+	var head = { cls: cls, label: function (c) { return labels[c.fieldname] || c.label; } };
 	var widths = { sr: 3, month: 9 };
 %}
 <table class="pp-table">
 	{{ pp.colgroup(cols, widths) }}
-	<thead>
-		<tr class="{{ has_groups ? 'pp-head-top' : '' }}">
-			{% for (var t = 0; t < groups.length; t++) { var gr = groups[t]; %}
-				{% if (gr.label) { %}
-				<th colspan="{{ gr.span }}" class="pp-c">{{ pp.esc(gr.label) }}</th>
-				{% } else { %}
-				<th rowspan="{{ has_groups ? 2 : 1 }}" class="{{ cls(gr.col) }}">{{ pp.esc(gr.col.fieldname === "sr" ? "SR" : gr.col.label) }}</th>
-				{% } %}
-			{% } %}
-		</tr>
-		{% if (has_groups) { %}
-		<tr>
-			{% for (var u = 0; u < cols.length; u++) { if (cols[u].group_label) { %}<th class="pp-num{{ u === last_grouped && u < cols.length - 1 ? ' pp-last-group' : '' }}">{{ pp.esc(cols[u].sub_label || cols[u].label) }}</th>{% } } %}
-		</tr>
-		{% } %}
-	</thead>
+	{{ pp.thead(cols, head) }}
 	<tbody>
 	{% if (!months.length) { %}
 		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No sales found for the selected filters</td></tr>

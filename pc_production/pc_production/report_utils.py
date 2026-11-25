@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 """Shared logic for the carton sales reports (City Wise Sales Report, SKU Wise Sales Analysis,
-Customer Wise Discount Report).
+Customer Wise Discount Report, Sales Summary Report Brand Wise).
 
 Period    From/To Year and From/To Month, like the client's Excel. Each year from From Year to
           To Year starts one period:
@@ -14,6 +14,10 @@ Period    From/To Year and From/To Month, like the client's Excel. Each year fro
 Lines     Submitted Sales Invoice items in the period (or a plain date range); credit notes count
           negative. Cartons = stock_qty / the item's "Carton" UOM factor; items without one keep
           their stock qty in unconverted_qty.
+Packing   Item "Packing Type" (custom_packing_type): Old (Hash) / New (Red) packing of the same
+          brand and size as separate items; the Packing filter keeps only items of that packing.
+Layout    get_brand_sku_layout: brands and SKUs to show, in Brand / SKU Sort Order (SKUs
+          optionally descending, e.g. 14# to 6#).
 Officers  The invoice's Sales Team. Quantities are split by allocated_percentage only when the
           Sales Officer filter is used; otherwise every line keeps its full quantity.
 Options   get_filter_options: whitelisted filter suggestions for every desk user (the reports have
@@ -46,6 +50,10 @@ QTY_TOLERANCE = 0.0005
 EN_DASH, TIMES, DIVIDE = "\u2013", "\u00d7", "\u00f7"
 # Multi-select filters understood by get_invoice_lines.
 LINE_FILTERS = ("city", "territory", "area", "sales_person", "brand", "sku", "item_group", "customer")
+# Item "Packing Type" options (get_invoice_lines: filters.packing).
+PACKING_TYPES = ("Old (Hash)", "New (Red)")
+NO_BRAND = "(No Brand)"
+NO_SKU = "(No SKU)"
 
 
 # ============================================================
@@ -147,6 +155,12 @@ def get_period_label(numbers, years, wraps=False):
 	return f"{month_part}, {year_part}"
 
 
+def count_months(from_date, to_date):
+	"""Calendar months the date range touches: 1-30 Nov = 1, 15 Oct-14 Nov = 2, Jul-Nov = 5."""
+	start, end = getdate(from_date), getdate(to_date)
+	return max((end.year - start.year) * 12 + end.month - start.month + 1, 1)
+
+
 def season_label(year):
 	return f"{year}-{str(year + 1)[2:]}"
 
@@ -165,6 +179,7 @@ def get_invoice_lines(filters, period=None):
 
 	period: the months from get_period; without it, every date from filters.from_date to
 	filters.to_date (date range reports such as Customer Wise Discount Report).
+	filters.packing: one of PACKING_TYPES keeps only items of that Packing Type.
 
 	Each line: invoice, posting_date, month (number), customer, customer_name, region, city,
 	area, item_code, item_name, item_group, brand, sku, cartons, unconverted_qty, factor
@@ -206,6 +221,10 @@ def get_invoice_lines(filters, period=None):
 	if filters.item_group:
 		values["item_groups"] = descendants_of("Item Group", filters.item_group)
 		conditions.append("item.item_group in %(item_groups)s")
+
+	if filters.get("packing") in PACKING_TYPES:
+		values["packing"] = filters.packing
+		conditions.append("item.custom_packing_type = %(packing)s")
 
 	lines = frappe.db.sql(
 		f"""
@@ -272,6 +291,147 @@ def set_sales_officers(lines, filters):
 			kept = [(sp, factor) for sp, factor in shares if sp in allowed]
 			line.factor = sum(factor for _sp, factor in kept)
 			line.officers = [sp for sp, _factor in kept]
+
+
+def get_quality_notes(lines, no_carton_label=None):
+	"""Items in the result that are missing a brand, SKU or Carton UOM (listed, never hidden).
+
+	no_carton_label: what the report does with items without a Carton UOM.
+	"""
+	missing = {
+		_("no Brand"): {line.item_code for line in lines if not line.brand},
+		_("no SKU"): {line.item_code for line in lines if not line.sku},
+		no_carton_label or _("no Carton UOM (shown in stock UOM)"): {
+			line.item_code for line in lines if line.unconverted_qty
+		},
+	}
+	notes = [
+		_("{0} {1} {2}: {3}").format(
+			len(items), plural(len(items), "item has", "items have"), label, ", ".join(sorted(items))
+		)
+		for label, items in missing.items()
+		if items
+	]
+	return "; ".join(notes)
+
+
+# ============================================================
+# BRAND / SKU LAYOUT
+# ============================================================
+
+
+def get_brand_sku_layout(lines, filters, descending_skus=False):
+	"""Brands and SKUs to show, in Brand / SKU Sort Order (blank Sort Order, then (No Brand) /
+	(No SKU) last).
+
+	Brands: the ticked ones, else those that sold. SKUs: the ticked ones, else those that sold.
+	descending_skus: SKUs from the highest Sort Order down within each Item Group (14# to 6#,
+	then Wire 14 No to Wire 10 No); the groups keep their order.
+	Sets line.brand_key / line.sku_key (NO_BRAND / NO_SKU when missing). Only lines with cartons
+	(a Carton UOM) count as sold.
+
+	Returns brands, skus (names), brand_info ({name: brand with short_name}), brand_labels
+	({name: short name, else name}) and sold_pairs ({(brand_key, sku_key)}).
+	"""
+	brand_info = {d.name: d for d in get_ordered_brands()}
+	brand_order = {name: idx for idx, name in enumerate(brand_info)}
+	sku_order = get_sku_order(descending_skus)
+
+	def ordered(names, order, missing_label):
+		return sorted(names, key=lambda n: (n == missing_label, order.get(n, len(order)), n.lower()))
+
+	for line in lines:
+		line.brand_key = line.brand or NO_BRAND
+		line.sku_key = line.sku or NO_SKU
+
+	sold_pairs = {(line.brand_key, line.sku_key) for line in lines if not line.unconverted_qty}
+	brands = ordered(
+		set(filters.brand) if filters.brand else {brand for brand, _sku in sold_pairs}, brand_order, NO_BRAND
+	)
+	skus = ordered(
+		set(filters.sku) if filters.sku else {sku for _brand, sku in sold_pairs}, sku_order, NO_SKU
+	)
+
+	return frappe._dict(
+		brands=brands,
+		skus=skus,
+		brand_info=brand_info,
+		brand_labels={
+			brand: (brand_info.get(brand) or frappe._dict()).short_name or brand for brand in brands
+		},
+		sold_pairs=sold_pairs,
+	)
+
+
+def get_sku_order(descending=False):
+	"""{SKU: position}: Sort Order, or (descending) highest first within each Item Group."""
+	skus = get_ordered_skus()
+	if descending:
+		group_rank = {}
+		for d in skus:
+			group_rank.setdefault(d.item_group or "", len(group_rank))
+		skus = [
+			d
+			for _rank, block in sorted(
+				(rank, [d for d in skus if (d.item_group or "") == group])
+				for group, rank in group_rank.items()
+			)
+			for d in reversed(block)
+		]
+	return {d.name: idx for idx, d in enumerate(skus)}
+
+
+# ============================================================
+# CUSTOMER DETAILS
+# ============================================================
+
+
+def set_customer_details(rows):
+	"""rows: dicts with customer and officers (set of sales persons from the invoices).
+
+	Sets ac_code (Customer "A/C Code", else the customer ID) and sales_person (the officers,
+	else the customer's own Sales Team when its invoices had none).
+	"""
+	if not rows:
+		return
+
+	customers = list({row.customer for row in rows})
+	codes = dict(
+		frappe.get_all(
+			"Customer", filters={"name": ["in", customers]}, fields=["name", "custom_ac_code"], as_list=True
+		)
+	)
+	teams = get_teams("Customer", {row.customer for row in rows if not row.officers})
+
+	for row in rows:
+		row.ac_code = (codes.get(row.customer) or "").strip() or row.customer
+		if not row.officers:
+			row.officers = {sp for sp, _f in get_shares(teams.get(row.customer, [])) if sp != UNASSIGNED}
+		row.sales_person = ", ".join(sorted(row.officers, key=str.lower))
+
+
+def get_primary_contact_names(customers):
+	"""{customer: full name of its Primary Contact} (customers without one are left out)."""
+	if not customers:
+		return {}
+	contacts = frappe.db.sql(
+		"""
+		select cust.name, ct.full_name, ct.first_name, ct.middle_name, ct.last_name
+		from `tabCustomer` cust
+		inner join `tabContact` ct on ct.name = cust.customer_primary_contact
+		where cust.name in %(customers)s
+		""",
+		{"customers": list(customers)},
+		as_dict=True,
+	)
+	names = {}
+	for d in contacts:
+		name = (d.full_name or "").strip() or " ".join(
+			p.strip() for p in (d.first_name, d.middle_name, d.last_name) if p and p.strip()
+		)
+		if name:
+			names[d.name] = name
+	return names
 
 
 # ============================================================

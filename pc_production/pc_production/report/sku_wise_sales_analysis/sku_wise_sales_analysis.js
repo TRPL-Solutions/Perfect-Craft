@@ -98,6 +98,13 @@ frappe.query_reports["SKU Wise Sales Analysis"] = {
 			value !== ""
 		) {
 			value = `${format_number(value, null, 1)}%`;
+		} else if (pc_sku_is_value_column(column)) {
+			// Whole cartons (Frappe formats a Float with precision 0 at the system precision); blank
+			// where the row has no value (e.g. SHARE % of the Qty without Carton UOM column).
+			value =
+				value == null || value === ""
+					? ""
+					: `<div style="text-align: right">${format_number(value, null, 0)}</div>`;
 		} else {
 			value = default_formatter(value, row, column, data);
 		}

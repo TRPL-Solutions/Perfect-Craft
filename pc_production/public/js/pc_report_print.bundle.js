@@ -21,11 +21,14 @@
 //   filters       [[fieldname, label], ...] listed in the header when set
 //   print_filters fieldname of a Check filter: list the filters only when it is ticked
 //
-// Row classes for templates: pp-line (dotted line), pp-group (group heading), pp-subtotal
-// (bold, ruled figures), pp-total (bold, ruled row), pp-grand (double underlined figures),
-// pp-foot (bold, no rules), pp-empty. pp-keep-next keeps a row with the next one on the page
+// Row classes for templates: pp-line (dotted line), pp-group (group heading), pp-band (coloured
+// group heading bar; add pp-band-0..3 for its colour), pp-subtotal (bold, ruled figures),
+// pp-total (bold, ruled row), pp-grand (double underlined figures), pp-foot (bold, no rules),
+// pp-empty. pp-keep-next keeps a row with the next one on the page
 // (group headings), pp-keep-prev with the previous one (totals). Cell classes: pp-num, pp-c,
 // pp-good, pp-bad, pp-label.
+// pp.thead(columns, options) builds a one or two row header from the columns' group_label /
+// sub_label.
 
 frappe.provide("pc_report_print");
 
@@ -82,6 +85,13 @@ frappe.provide("pc_report_print");
 		.pp-table td.pp-label { text-align: right; }
 		.pp-table tr.pp-line td { border-bottom: 1px dotted #8c8c8c; }
 		.pp-table tr.pp-group td { font-weight: bold; text-decoration: underline; color: #1a3fb3; padding-top: 7px; font-size: 1.1em; }
+		.pp-table tr.pp-band td { font-weight: bold; background: #fbe5b6; border-top: 1px solid #000;
+			border-bottom: 1px solid #000; padding-top: 3px; padding-bottom: 3px; }
+		.pp-table tr.pp-band td:first-child { border-left: 1px solid #000; }
+		.pp-table tr.pp-band td:last-child { border-right: 1px solid #000; }
+		.pp-table tr.pp-band-1 td { background: #d6e4f5; }
+		.pp-table tr.pp-band-2 td { background: #d9eed5; }
+		.pp-table tr.pp-band-3 td { background: #f2d9e6; }
 		.pp-table tr.pp-subtotal td { font-weight: bold; padding-top: 3px; padding-bottom: 5px; }
 		.pp-table tr.pp-subtotal td.pp-num { border-top: 1px solid #000; }
 		.pp-table tr.pp-total td { font-weight: bold; border-top: 1px solid #000; }
@@ -203,6 +213,54 @@ frappe.provide("pc_report_print");
 				: `${format_number(flt(v), null, decimals == null ? 2 : decimals)}%`,
 		is_num: (c) => ["Currency", "Float", "Int", "Percent"].includes(c && c.fieldtype),
 		list: (v) => (Array.isArray(v) ? v.join(", ") : v || ""),
+		// <thead>: consecutive columns with the same group_label share one top cell, their
+		// sub_label (else label) goes in a second row; the other columns span both rows.
+		// options: label(c) -> header text (default c.label), cls(c) -> class of an ungrouped
+		// header (default pp-num for numbers), sub_cls -> class of the second row (default pp-num).
+		thead(cols, options) {
+			const opts = options || {};
+			const label = opts.label || ((c) => c.label);
+			const cls = opts.cls || ((c) => (pp.is_num(c) ? "pp-num" : ""));
+			const sub_cls = opts.sub_cls || "pp-num";
+			const groups = [];
+			for (const c of cols) {
+				const group = c.group_label || "";
+				const last = groups[groups.length - 1];
+				if (group && last && last.label === group) last.span += 1;
+				else groups.push({ label: group, span: 1, col: c });
+			}
+			const has_groups = groups.some((g) => g.label);
+			// Last cell of the second row: the outer right border only when it is the last column.
+			let last_grouped = -1;
+			cols.forEach((c, i) => {
+				if (c.group_label) last_grouped = i;
+			});
+			const top = groups
+				.map((g) =>
+					g.label
+						? `<th colspan="${g.span}" class="pp-c">${pp.esc(g.label)}</th>`
+						: `<th rowspan="${has_groups ? 2 : 1}" class="${cls(g.col)}">${pp.esc(
+								label(g.col)
+						  )}</th>`
+				)
+				.join("");
+			const second = has_groups
+				? `<tr>${cols
+						.map((c, i) =>
+							c.group_label
+								? `<th class="${sub_cls}${
+										i === last_grouped && i < cols.length - 1
+											? " pp-last-group"
+											: ""
+								  }">${pp.esc(c.sub_label || c.label)}</th>`
+								: ""
+						)
+						.join("")}</tr>`
+				: "";
+			return `<thead><tr class="${
+				has_groups ? "pp-head-top" : ""
+			}">${top}</tr>${second}</thead>`;
+		},
 		// <colgroup>: fixed % per fieldname (widths), the other columns share what is left; scaled to 100%.
 		colgroup(cols, widths, other) {
 			widths = widths || {};
@@ -503,7 +561,7 @@ frappe.provide("pc_report_print");
 	}
 
 	// Largest font (0.25pt steps) at which no number, and no column header word, is wider than its
-	// column. Leaves the measure element rendered at that size.
+	// column, here and in the PDF (see pdf_width). Leaves the measure element rendered at that size.
 	function fit_font(root, start) {
 		const table = root.querySelector("table.pp-table");
 		if (!table) return start;
@@ -521,35 +579,62 @@ frappe.provide("pc_report_print");
 		for (const cell of table.querySelectorAll("td.pp-num, th")) {
 			const style = getComputedStyle(cell);
 			const room =
-				cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-			let need;
-			if (cell.tagName === "TH") {
-				need = longest_word(cell, range);
-			} else {
-				range.selectNodeContents(cell);
-				need = range.getBoundingClientRect().width;
+				cell.clientWidth -
+				parseFloat(style.paddingLeft) -
+				parseFloat(style.paddingRight) +
+				0.5;
+			// Headers wrap between words, not inside them: each word must fit. Numbers never wrap.
+			const pieces = cell.tagName === "TH" ? words_of(cell, range) : [text_of(cell, range)];
+			for (const [text, width] of pieces) {
+				if (Math.max(width * FIT_SLACK, pdf_width(text, style)) > room) return false;
 			}
-			if (need * FIT_SLACK > room + 0.5) return false;
 		}
 		return true;
 	}
 
-	// Width of the longest word of a header cell (headers wrap between words, not inside them).
-	function longest_word(cell, range) {
-		let widest = 0;
+	// [[word, width in px], ...] of a header cell.
+	function words_of(cell, range) {
+		const words = [];
 		const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
 		while (walker.nextNode()) {
 			const node = walker.currentNode;
-			const text = node.nodeValue;
 			const re = /\S+/g;
 			let m;
-			while ((m = re.exec(text))) {
+			while ((m = re.exec(node.nodeValue))) {
 				range.setStart(node, m.index);
 				range.setEnd(node, m.index + m[0].length);
-				widest = Math.max(widest, range.getBoundingClientRect().width);
+				words.push([m[0], range.getBoundingClientRect().width]);
 			}
 		}
-		return widest;
+		return words;
+	}
+
+	function text_of(cell, range) {
+		range.selectNodeContents(cell);
+		return [cell.textContent.trim(), range.getBoundingClientRect().width];
+	}
+
+	// Width of the text as wkhtmltopdf lays it out: hinted glyphs at a whole-pixel font size, each
+	// advance rounded to whole pixels (e.g. bold "without" at 9.67px: 31px here, 35px in the PDF).
+	const glyph_widths = new Map();
+	let glyph_ctx;
+	function pdf_width(text, style) {
+		const font = `${style.fontWeight} ${Math.round(parseFloat(style.fontSize))}px ${
+			style.fontFamily
+		}`;
+		glyph_ctx = glyph_ctx || document.createElement("canvas").getContext("2d");
+		glyph_ctx.font = font;
+		let total = 0;
+		for (const ch of text) {
+			const key = `${font}|${ch}`;
+			let width = glyph_widths.get(key);
+			if (width == null) {
+				width = Math.round(glyph_ctx.measureText(ch).width);
+				glyph_widths.set(key, width);
+			}
+			total += width;
+		}
+		return total;
 	}
 
 	// Splits the rendered table (and anything after it) into pages of at most `avail` px each;

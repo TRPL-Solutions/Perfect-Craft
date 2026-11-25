@@ -51,6 +51,9 @@ from pc_production.pc_production.report_utils import (
 	get_list,
 	matches_geography,
 )
+from pc_production.pc_production.report_utils import (
+	set_customer_details as set_code_and_officers,
+)
 
 MULTI_FILTERS = ("sales_person", "territory", "city", "area")
 AMOUNT_TOLERANCE = 0.005
@@ -231,23 +234,9 @@ def add_customers_without_sales(rows, filters):
 
 
 def set_customer_details(rows, filters):
-	if not rows:
-		return
-
-	customers = list(rows)
-	codes = dict(
-		frappe.get_all(
-			"Customer", filters={"name": ["in", customers]}, fields=["name", "custom_ac_code"], as_list=True
-		)
-	)
-	# Customers whose invoices had no Sales Team: the customer's own Sales Team.
-	teams = get_teams("Customer", {c for c, row in rows.items() if not row.officers})
-
+	# A/C code; officers, else the customer's own Sales Team (report_utils).
+	set_code_and_officers(list(rows.values()))
 	for customer, row in rows.items():
-		row.ac_code = (codes.get(customer) or "").strip() or customer
-		if not row.officers:
-			row.officers = {sp for sp, _f in get_shares(teams.get(customer, [])) if sp != UNASSIGNED}
-		row.sales_person = ", ".join(sorted(row.officers, key=str.lower))
 		row.credit_days = get_credit_days(customer, filters.company)
 		# 0 = no credit limit in ERPNext: shown blank.
 		row.credit_limit = flt(get_credit_limit(customer, filters.company)) or None

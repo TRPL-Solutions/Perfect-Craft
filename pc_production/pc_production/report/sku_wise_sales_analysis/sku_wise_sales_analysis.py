@@ -25,16 +25,14 @@ from pc_production.pc_production.report.recovery_report.recovery_report import g
 from pc_production.pc_production.report_utils import (
 	DIVIDE,
 	QTY_TOLERANCE,
+	get_brand_sku_layout,
 	get_invoice_lines,
-	get_ordered_brands,
-	get_ordered_skus,
 	get_period,
+	get_quality_notes,
 	plural,
 	validate_period_filters,
 )
 
-NO_BRAND = "(No Brand)"
-NO_SKU = "(No SKU)"
 CHART_COLORS = ["#2490ef", "#f39c12", "#27ae60", "#8e44ad", "#e74c3c", "#16a085", "#7f8c8d"]
 FOOTER_ROWS = ("total", "average", "max", "min", "share")
 
@@ -64,25 +62,8 @@ def execute(filters=None):
 
 
 def get_layout(lines, filters):
-	brand_info = {d.name: d for d in get_ordered_brands()}
-	brand_order = {name: idx for idx, name in enumerate(brand_info)}
-	sku_order = {d.name: idx for idx, d in enumerate(get_ordered_skus())}
-
-	def ordered(names, order, missing_label):
-		return sorted(names, key=lambda n: (n == missing_label, order.get(n, len(order)), n.lower()))
-
-	converted = [line for line in lines if not line.unconverted_qty]
-	for line in lines:
-		line.brand_key = line.brand or NO_BRAND
-		line.sku_key = line.sku or NO_SKU
-
-	sold_pairs = {(line.brand_key, line.sku_key) for line in converted}
-	brands = ordered(
-		set(filters.brand) if filters.brand else {brand for brand, _sku in sold_pairs}, brand_order, NO_BRAND
-	)
-	skus = ordered(
-		set(filters.sku) if filters.sku else {sku for _brand, sku in sold_pairs}, sku_order, NO_SKU
-	)
+	order = get_brand_sku_layout(lines, filters)
+	brand_info, brands, skus, sold_pairs = order.brand_info, order.brands, order.skus, order.sold_pairs
 
 	if filters.sku:
 		# Ticked SKUs always show, under every brand shown.
@@ -110,9 +91,7 @@ def get_layout(lines, filters):
 	return frappe._dict(
 		combos=combos,
 		brands=brands,
-		brand_labels={
-			brand: (brand_info.get(brand) or frappe._dict()).short_name or brand for brand in brands
-		},
+		brand_labels=order.brand_labels,
 		skus=[frappe._dict(name=sku, fieldname=f"t_{idx}") for idx, sku in enumerate(skus)],
 	)
 
@@ -201,23 +180,6 @@ def get_data(month_rows, period, layout, has_unconverted, filters, quality):
 def get_average_description(period):
 	months = len(period.months)
 	return _("Total {0} {1} {2} selected").format(DIVIDE, months, plural(months, "month", "months"))
-
-
-def get_quality_notes(lines):
-	"""Items in the result that are missing a brand, SKU or Carton UOM (listed, never hidden)."""
-	missing = {
-		_("no Brand"): {line.item_code for line in lines if not line.brand},
-		_("no SKU"): {line.item_code for line in lines if not line.sku},
-		_("no Carton UOM (shown in stock UOM)"): {line.item_code for line in lines if line.unconverted_qty},
-	}
-	notes = [
-		_("{0} {1} {2}: {3}").format(
-			len(items), plural(len(items), "item has", "items have"), label, ", ".join(sorted(items))
-		)
-		for label, items in missing.items()
-		if items
-	]
-	return "; ".join(notes)
 
 
 # ============================================================

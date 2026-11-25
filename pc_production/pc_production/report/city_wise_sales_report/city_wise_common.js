@@ -127,7 +127,8 @@ function pc_city_wise_settings(options) {
 		},
 
 		formatter(value, row, column, data, default_formatter) {
-			value = default_formatter(value, row, column, data);
+			value =
+				pc_cws_whole_number(value, column) ?? default_formatter(value, row, column, data);
 			if (!data) return value;
 
 			if (data.row_type === "month_total" || data.row_type === "monthly_average") {
@@ -160,7 +161,16 @@ function pc_city_wise_settings(options) {
 
 // Not Link fields: the report is open to every desk user, and most have no permission on
 // these doctypes (see report_utils.get_filter_options).
-function pc_cws_multi(fieldname, label, doctype) {
+// Whole cartons on screen for Float columns with precision 0 (Frappe formats a Float with
+// precision 0 at the system precision, e.g. "110.000"); null for every other cell.
+function pc_cws_whole_number(value, column) {
+	const whole = column && column.fieldtype === "Float" && column.precision === 0;
+	if (!whole || value == null || value === "") return null;
+	return `<div style="text-align: right">${format_number(value, null, 0)}</div>`;
+}
+
+// extra_args: optional fn() -> more arguments for get_filter_options (e.g. the SKU filter's item_group).
+function pc_cws_multi(fieldname, label, doctype, extra_args) {
 	return {
 		fieldname,
 		label,
@@ -169,7 +179,7 @@ function pc_cws_multi(fieldname, label, doctype) {
 			frappe
 				.call({
 					method: "pc_production.pc_production.report_utils.get_filter_options",
-					args: { doctype, txt },
+					args: { doctype, txt, ...(extra_args ? extra_args() : {}) },
 				})
 				.then((r) =>
 					(r.message || []).map((option) =>

@@ -1,0 +1,54 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header and footer and shrinks the font until all SKU columns fit the page width.
+	   Header: "SKU Wise Cartons" over the SKU columns (pp.thead). Rows: per brand a coloured heading
+	   (brand), its customers (line) and its subtotal; then total and average (also carries the notes). */
+	var rows = data || [];
+	var cols = columns || [];
+	var info = {};
+	for (var k = 0; k < rows.length; k++) {
+		if (rows[k].row_type === "average") { info = rows[k]; }
+	}
+	/* Text columns and Total / Avg get fixed widths; the SKU columns share the rest. */
+	var widths = {
+		ac_code: 6.5, customer_name: 11.5, sales_person: 7.5, owner: 7.5, city: 6.5, region: 8, area: 6.5,
+		brand: 4.5, total: 6, average: 6.5,
+	};
+	/* Whole cartons; averages to 1 decimal. */
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (pp.is_num(c)) { return pp.num(v, c.fieldname === "average" || r.row_type === "average" ? 1 : 0); }
+		return pp.esc(v);
+	};
+	var lead = 0;
+	while (lead < cols.length && !pp.is_num(cols[lead])) { lead += 1; }
+	var row_class = { subtotal: "pp-subtotal", total: "pp-grand", average: "pp-foot" };
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	{{ pp.thead(cols) }}
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No sales found for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		{% if (r.row_type === "brand") { %}
+		<tr class="pp-band pp-band-{{ (r.brand_index || 0) % 4 }} pp-keep-next"><td colspan="{{ cols.length || 1 }}">{{ pp.esc(r.customer_name) }}</td></tr>
+		{% } else if (r.row_type === "line") { %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ pp.is_num(cols[j]) ? 'pp-num' : '' }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
+		{% } else { %}
+		<tr class="{{ row_class[r.row_type] || 'pp-foot' }} pp-keep-prev">
+			{% if (lead) { %}<td class="pp-label" colspan="{{ lead }}">{{ pp.esc(r.customer_name) }}</td>{% } %}
+			{% for (var x = lead; x < cols.length; x++) { %}<td class="pp-num">{{ cell(r, cols[x]) }}</td>{% } %}
+		</tr>
+		{% } %}
+	{% } %}
+	</tbody>
+</table>
+{% if (info.average_description || info.quality_notes) { %}
+<div class="pp-notes">
+	{% if (info.average_description) { %}Avg/Month and AVERAGE / MONTH = {{ pp.esc(info.average_description) }}. Customer = the customer's primary contact (owner). Credit notes are deducted.<br>{% } %}
+	{% if (info.quality_notes) { %}Data check: {{ pp.esc(info.quality_notes) }}.{% } %}
+</div>
+{% } %}

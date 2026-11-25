@@ -63,6 +63,26 @@
    "translatable": 0,
    "unique": 0,
    "width": null
+  },
+  {
+   "creation": "2026-11-25 10:00:00.000000",
+   "default": null,
+   "depends_on": null,
+   "description": "Perfect Bridge packing: Old (Hash) or New (Red). Each packing is a separate item. Blank for other items. Used by the Packing filter of Sales Summary Report Brand Wise.",
+   "doctype": "Custom Field",
+   "dt": "Item",
+   "fieldname": "custom_packing_type",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "insert_after": "custom_sku",
+   "is_system_generated": 0,
+   "label": "Packing Type",
+   "modified": "2026-11-25 10:00:00.000000",
+   "modified_by": "Administrator",
+   "module": "PC Production",
+   "name": "Item-custom_packing_type",
+   "options": "\nOld (Hash)\nNew (Red)",
+   "owner": "Administrator"
   }
  ],
  "custom_perms": [],
