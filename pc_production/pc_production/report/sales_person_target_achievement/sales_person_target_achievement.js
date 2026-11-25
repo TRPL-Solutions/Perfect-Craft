@@ -59,6 +59,22 @@ frappe.query_reports["Sales Person Target Achievement"] = {
 		},
 	],
 
+	onload(report) {
+		// Print preview / PDF of the rows and filters on screen (public/js/pc_report_print.bundle.js,
+		// table: sales_person_target_achievement.html).
+		pc_report_print.setup(report, {
+			title: __("Sales Person Target Achievement"),
+			orientation: "Portrait",
+			font_size: 8,
+			filters: [
+				["fiscal_year", "Fiscal Year"],
+				["sales_person", "Sales Person"],
+				["item_group", "Item Group"],
+				["territory", "Territory"],
+			],
+		});
+	},
+
 	formatter(value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (!data) return value;
@@ -101,8 +117,14 @@ function pc_target_achievement_fit_dates_to_fiscal_year() {
 			fy = fy || {};
 			const from_date = report.get_filter_value("from_date");
 			const to_date = report.get_filter_value("to_date");
-			if (fy.year_start_date && (from_date < fy.year_start_date || to_date > fy.year_end_date)) {
-				report.set_filter_value({ from_date: fy.year_start_date, to_date: fy.year_end_date });
+			if (
+				fy.year_start_date &&
+				(from_date < fy.year_start_date || to_date > fy.year_end_date)
+			) {
+				report.set_filter_value({
+					from_date: fy.year_start_date,
+					to_date: fy.year_end_date,
+				});
 			} else {
 				report.refresh();
 			}

@@ -5,3 +5,5 @@
 tags
 node_modules
 __pycache__
+# bench build output (hashed bundles)
+pc_production/public/dist

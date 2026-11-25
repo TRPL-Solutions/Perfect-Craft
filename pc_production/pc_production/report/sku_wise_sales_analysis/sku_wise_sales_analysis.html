@@ -1,12 +1,11 @@
 {%
-	var rows = (typeof original_data !== "undefined" && original_data && original_data.length ? original_data : data) || [];
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header and footer and shrinks the font until all SKU columns fit the page width.
+	   Two header rows: consecutive columns with the same group_label share one top cell (Brand over
+	   SKU). Rows: month, then total / average / max / min / share; the last row carries the notes,
+	   max / min mark the best and worst month per column. */
+	var rows = data || [];
 	var cols = columns || [];
-	var esc = function (v) { return frappe.utils.escape_html(v == null ? "" : String(v)); };
-	var whole = function (v) { return format_number(flt(v), null, 0); };
-	var is_num = function (c) { return ["Float", "Int", "Currency"].indexOf(c.fieldtype) !== -1; };
-	var footer_types = ["total", "average", "max", "min", "share"];
-	var now = moment();
-	/* Header and notes come from the last footer row (get_data); max/min rows mark the best and worst month. */
 	var info = {}, max_row = {}, min_row = {};
 	var months = [], footer = [];
 	for (var k = 0; k < rows.length; k++) {
@@ -14,33 +13,25 @@
 		if (rk.row_type === "month") { months.push(rk); } else { footer.push(rk); }
 		if (rk.row_type === "max") { max_row = rk; }
 		if (rk.row_type === "min") { min_row = rk; }
-		if (k === rows.length - 1) { info = rk; }
+		if (rk.quality_notes || rk.average_description) { info = rk; }
 	}
+	var is_num = function (c) { return c.fieldname !== "sr" && pp.is_num(c); };
 	var cell = function (r, c) {
 		var v = r[c.fieldname];
-		if (c.fieldname === "sr") { return v ? esc(v) : ""; }
-		if (!is_num(c)) { return esc(v); }
-		if (v == null || v === "") { return ""; }
-		return r.row_type === "share" ? format_number(flt(v), null, 1) + "%" : whole(v);
+		if (c.fieldname === "sr") { return v ? pp.esc(v) : ""; }
+		if (!is_num(c)) { return pp.esc(v); }
+		return r.row_type === "share" ? pp.pct(v, 1) : pp.num(v);
 	};
 	var mark = function (r, c) {
-		if (r.row_type !== "month" || !is_num(c) || c.fieldname === "sr") { return ""; }
+		if (r.row_type !== "month" || !is_num(c)) { return ""; }
 		var hi = max_row[c.fieldname], lo = min_row[c.fieldname];
 		if (hi == null || lo == null || Math.abs(hi - lo) < 0.0005) { return ""; }
-		if (Math.abs(r[c.fieldname] - hi) < 0.0005) { return " sk-best"; }
-		if (Math.abs(r[c.fieldname] - lo) < 0.0005) { return " sk-worst"; }
+		if (Math.abs(r[c.fieldname] - hi) < 0.0005) { return " pp-good"; }
+		if (Math.abs(r[c.fieldname] - lo) < 0.0005) { return " pp-bad"; }
 		return "";
 	};
-	var cls = function (c) { return c.fieldname === "sr" ? "sk-sr" : (is_num(c) ? "sk-num" : ""); };
-	var company = info.company_name || filters.company || "";
-	var short_month = function (m) { return m ? String(m).substring(0, 3) : ""; };
-	var period = info.period_label || (short_month(filters.from_month) + "–" + short_month(filters.to_month) + ", " + (filters.from_year == filters.to_year ? filters.from_year : filters.from_year + "–" + filters.to_year));
-	var list = function (v) { return Array.isArray(v) ? v.join(", ") : (v || ""); };
-	var applied = [];
-	var labels = [["brand", "Sub Category"], ["sku", "SKU"], ["item_group", "Item Group"], ["customer", "Customer"], ["city", "City"], ["territory", "Region"], ["area", "Area"], ["sales_person", "Sales Officer"]];
-	for (var f = 0; f < labels.length; f++) { if (list(filters[labels[f][0]])) { applied.push([labels[f][1], list(filters[labels[f][0]])]); } }
-	var show_filters = filters.print_filters && filters.print_filters !== "0" && applied.length;
-	/* Two header rows: consecutive columns with the same group_label share one top cell (Brand over SKU). */
+	var cls = function (c) { return c.fieldname === "sr" ? "pp-c" : (is_num(c) ? "pp-num" : ""); };
+	var foot_class = { total: "pp-grand", average: "pp-foot", max: "pp-foot", min: "pp-foot", share: "pp-foot" };
 	var groups = [];
 	for (var g = 0; g < cols.length; g++) {
 		var gl = cols[g].group_label || "";
@@ -49,125 +40,45 @@
 	}
 	var has_groups = false;
 	for (var h = 0; h < groups.length; h++) { if (groups[h].label) { has_groups = true; } }
-	var text_widths = { sr: 3.5, month: 10 };
-	var used = 0, num_cols = 0;
-	for (var c = 0; c < cols.length; c++) { if (text_widths[cols[c].fieldname]) { used += text_widths[cols[c].fieldname]; } else { num_cols += 1; } }
-	var num_width = num_cols ? (100 - used) / num_cols : 0;
-	var density = num_cols > 18 ? " sk-xdense" : (num_cols > 12 ? " sk-dense" : "");
-	var printed_by = frappe.session.user_fullname || frappe.session.user;
+	/* Last cell of the second header row: only gets the outer right border when it is the last column. */
+	var last_grouped = -1;
+	for (var lg = 0; lg < cols.length; lg++) { if (cols[lg].group_label) { last_grouped = lg; } }
+	var widths = { sr: 3, month: 9 };
 %}
-<style>
-	@page {
-		size: A4 landscape;
-		margin: 9mm 8mm 13mm 8mm;
-		@bottom-left { content: "Generated by Thru ERP"; font-size: 7pt; color: #777; }
-		@bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7pt; color: #777; }
-	}
-	.print-format { padding: 0 !important; max-width: none !important; font-size: 7.5pt; color: #222; }
-	.sk-head { width: 100%; border-collapse: collapse; margin-bottom: 6px; border-bottom: 2px solid #1f3b64; }
-	.sk-head td { border: none; padding: 0 0 6px 0; vertical-align: bottom; }
-	.sk-company { font-size: 15pt; font-weight: bold; color: #1f3b64; }
-	.sk-company-city { font-size: 8.5pt; color: #555; }
-	.sk-title { font-size: 13pt; font-weight: bold; text-align: center; }
-	.sk-period { font-size: 9pt; text-align: center; color: #333; }
-	.sk-meta { font-size: 7.5pt; text-align: right; color: #555; line-height: 1.5; }
-	.sk-filters { border: 1px solid #c8d1dd; background: #f5f7fa; border-radius: 3px; padding: 4px 8px; margin: 0 0 6px 0; font-size: 7.5pt; }
-	.sk-filters span { display: inline-block; margin-right: 14px; }
-	.sk-filters b { color: #1f3b64; }
-	.sk-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7.5pt; }
-	.sk-table thead { display: table-header-group; }
-	.sk-table tfoot { display: table-footer-group; }
-	.sk-table th, .sk-table td { padding: 3px 4px; vertical-align: top; overflow-wrap: anywhere; }
-	.sk-table thead th { background: #1f3b64; color: #fff; font-weight: bold; text-align: center; border: 1px solid #fff; vertical-align: middle; }
-	.sk-table thead tr.sk-sub th { background: #2f5689; }
-	.sk-table thead th.sk-left { text-align: left; }
-	.sk-table td.sk-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-	.sk-table td.sk-sr { text-align: center; color: #666; }
-	.sk-table tbody td { border-bottom: 1px solid #e3e7ed; }
-	.sk-table tbody tr.sk-even td { background: #f4f6f9; }
-	.sk-table td.sk-best { font-weight: bold; color: #1e7b34; }
-	.sk-table td.sk-worst { font-style: italic; color: #b03a2e; }
-	.sk-table tr.sk-foot td { font-weight: bold; background: #eef1f5; }
-	.sk-table tr.sk-foot-total td { background: #e4e9f0; border-top: 2px solid #1f3b64; }
-	.sk-table tr.sk-foot-share td { border-bottom: 2px solid #1f3b64; }
-	.sk-table tfoot td { border: none; padding-top: 6px; font-size: 6.5pt; color: #777; text-align: left; }
-	.sk-table.sk-dense { font-size: 6.8pt; }
-	.sk-table.sk-dense th, .sk-table.sk-dense td { padding: 2px 2px; }
-	.sk-table.sk-xdense { font-size: 6pt; }
-	.sk-table.sk-xdense th, .sk-table.sk-xdense td { padding: 2px 1px; }
-	.sk-notes { margin-top: 6px; font-size: 7pt; color: #555; line-height: 1.5; }
-</style>
-
-<table class="sk-head">
-	<tr>
-		<td style="width: 34%;">
-			<div class="sk-company">{{ esc(company) }}</div>
-			{% if (info.company_city) { %}<div class="sk-company-city">{{ esc(info.company_city) }}</div>{% } %}
-		</td>
-		<td style="width: 36%;">
-			<div class="sk-title">SKU Wise Sales Analysis</div>
-			<div class="sk-period">{{ esc(period) }} &nbsp;·&nbsp; Brand × SKU, cartons</div>
-		</td>
-		<td style="width: 30%;" class="sk-meta">
-			Printed: {{ now.format("DD-MMM-YYYY h:mm A") }}<br>
-			By: {{ esc(printed_by) }}
-		</td>
-	</tr>
-</table>
-
-{% if (show_filters) { %}
-<div class="sk-filters">
-	{% for (var a = 0; a < applied.length; a++) { %}<span><b>{{ esc(applied[a][0]) }}:</b> {{ esc(applied[a][1]) }}</span>{% } %}
-</div>
-{% } %}
-
-<table class="sk-table{{ density }}">
-	<colgroup>
-		{% for (var w = 0; w < cols.length; w++) { %}<col style="width: {{ text_widths[cols[w].fieldname] || num_width }}%;">{% } %}
-	</colgroup>
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
 	<thead>
-		<tr>
+		<tr class="{{ has_groups ? 'pp-head-top' : '' }}">
 			{% for (var t = 0; t < groups.length; t++) { var gr = groups[t]; %}
 				{% if (gr.label) { %}
-				<th colspan="{{ gr.span }}">{{ esc(gr.label) }}</th>
+				<th colspan="{{ gr.span }}" class="pp-c">{{ pp.esc(gr.label) }}</th>
 				{% } else { %}
-				<th rowspan="{{ has_groups ? 2 : 1 }}" class="{{ is_num(gr.col) ? '' : 'sk-left' }}">{{ esc(gr.col.label) }}</th>
+				<th rowspan="{{ has_groups ? 2 : 1 }}" class="{{ cls(gr.col) }}">{{ pp.esc(gr.col.fieldname === "sr" ? "SR" : gr.col.label) }}</th>
 				{% } %}
 			{% } %}
 		</tr>
 		{% if (has_groups) { %}
-		<tr class="sk-sub">
-			{% for (var u = 0; u < cols.length; u++) { if (cols[u].group_label) { %}<th>{{ esc(cols[u].sub_label || cols[u].label) }}</th>{% } } %}
+		<tr>
+			{% for (var u = 0; u < cols.length; u++) { if (cols[u].group_label) { %}<th class="pp-num{{ u === last_grouped && u < cols.length - 1 ? ' pp-last-group' : '' }}">{{ pp.esc(cols[u].sub_label || cols[u].label) }}</th>{% } } %}
 		</tr>
 		{% } %}
 	</thead>
-	<tfoot>
-		<tr><td colspan="{{ cols.length || 1 }}">Generated by Thru ERP · {{ esc(company) }} · SKU Wise Sales Analysis · {{ esc(period) }} · Printed {{ now.format("DD-MMM-YYYY h:mm A") }}</td></tr>
-	</tfoot>
 	<tbody>
 	{% if (!months.length) { %}
-		<tr><td colspan="{{ cols.length || 1 }}" style="text-align: center; padding: 20px;">No sales found for the selected filters.</td></tr>
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No sales found for the selected filters</td></tr>
 	{% } %}
 	{% for (var i = 0; i < months.length; i++) { var r = months[i]; %}
-		<tr class="{{ (i & 1) ? 'sk-even' : '' }}" style="break-inside: avoid;">
-			{% for (var j = 0; j < cols.length; j++) { %}
-			<td class="{{ cls(cols[j]) }}{{ mark(r, cols[j]) }}">{{ cell(r, cols[j]) }}</td>
-			{% } %}
-		</tr>
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ cls(cols[j]) }}{{ mark(r, cols[j]) }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
 	{% } %}
 	{% for (var x = 0; x < footer.length; x++) { var s = footer[x]; %}
-		<tr class="sk-foot sk-foot-{{ s.row_type }}" style="break-inside: avoid;">
-			{% for (var y = 0; y < cols.length; y++) { %}
-			<td class="{{ cls(cols[y]) }}">{{ cell(s, cols[y]) }}</td>
-			{% } %}
-		</tr>
+		<tr class="{{ foot_class[s.row_type] || 'pp-foot' }} pp-keep-prev">{% for (var y = 0; y < cols.length; y++) { %}<td class="{{ cls(cols[y]) }}">{{ cell(s, cols[y]) }}</td>{% } %}</tr>
 	{% } %}
 	</tbody>
 </table>
-
-<div class="sk-notes">
-	{% if (info.average_description) { %}AVERAGE PER MONTH = {{ esc(info.average_description) }}. MAX / MIN over the month rows, months without sales included. SHARE % = column total ÷ grand TOTAL.
+{% if (info.average_description || info.quality_notes) { %}
+<div class="pp-notes">
+	{% if (info.average_description) { %}AVERAGE PER MONTH = {{ pp.esc(info.average_description) }}. MAX / MIN over the month rows, months without sales included. SHARE % = column total ÷ grand TOTAL.
 	<b>Bold green</b> = best month, <i>italic red</i> = weakest month per column. Credit notes are deducted.<br>{% } %}
-	{% if (info.quality_notes) { %}Data check: {{ esc(info.quality_notes) }}.<br>{% } %}
-	{% if (density === " sk-xdense") { %}Many columns: narrow the Sub Category / SKU filters for a larger print.{% } %}
+	{% if (info.quality_notes) { %}Data check: {{ pp.esc(info.quality_notes) }}.{% } %}
 </div>
+{% } %}

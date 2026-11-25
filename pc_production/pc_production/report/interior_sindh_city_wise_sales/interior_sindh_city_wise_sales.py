@@ -25,6 +25,6 @@ def execute(filters=None):
 
 	columns, data, message, chart = city_wise_execute(filters)
 	if data:
-		# Read by the shared print template for its title.
+		# Report title on the data (the print title itself is print_title in the .js).
 		data[-1]["report_title"] = REPORT_TITLE
 	return columns, data, message, chart

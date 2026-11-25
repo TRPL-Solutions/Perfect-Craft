@@ -1,0 +1,28 @@
+{
+    "custom_fields": [
+        {
+            "creation": "2026-11-24 23:00:00.000000",
+            "description": "The customer's code from the old accounts (shown as AC/CODE in Customer Wise Discount Report; the customer ID when empty).",
+            "doctype": "Custom Field",
+            "dt": "Customer",
+            "fieldname": "custom_ac_code",
+            "fieldtype": "Data",
+            "in_standard_filter": 1,
+            "insert_after": "customer_name",
+            "is_system_generated": 0,
+            "label": "A/C Code",
+            "modified": "2026-11-24 23:00:00.000000",
+            "modified_by": "Administrator",
+            "module": "PC Production",
+            "name": "Customer-custom_ac_code",
+            "no_copy": 1,
+            "owner": "Administrator",
+            "search_index": 1
+        }
+    ],
+    "custom_perms": [],
+    "doctype": "Customer",
+    "links": [],
+    "property_setters": [],
+    "sync_on_migrate": 1
+}

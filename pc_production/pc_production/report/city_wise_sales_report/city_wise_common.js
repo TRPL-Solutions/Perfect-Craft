@@ -100,6 +100,32 @@ function pc_city_wise_settings(options) {
 			pc_cws_multi("customer", __("Customer"), "Customer"),
 		],
 
+		onload(report) {
+			// Print preview / PDF of the rows and filters on screen (public/js/pc_report_print.bundle.js,
+			// table: city_wise_sales_report.html).
+			pc_report_print.setup(report, {
+				title: (ctx) =>
+					options.print_title ||
+					(ctx.filters.group_by === "Customer"
+						? __("Customer Wise Sales Report")
+						: __("City Wise Sales Report")),
+				orientation: "Landscape",
+				font_size: 8,
+				subtitle: __("Cartons"),
+				period: pc_report_print.month_period,
+				print_filters: "print_filters",
+				filters: [
+					["city", "City"],
+					["territory", "Region"],
+					["area", "Area"],
+					["sales_person", "Sales Officer"],
+					["brand", "Brand"],
+					["sku", "SKU"],
+					["customer", "Customer"],
+				],
+			});
+		},
+
 		formatter(value, row, column, data, default_formatter) {
 			value = default_formatter(value, row, column, data);
 			if (!data) return value;
@@ -129,8 +155,6 @@ function pc_city_wise_settings(options) {
 	settings.filters = settings.filters
 		.filter((df) => !exclude.includes(df.fieldname))
 		.map((df) => (df.fieldname in defaults ? { ...df, default: defaults[df.fieldname] } : df));
-	// Read by the print template when the report has no data row to take the title from.
-	settings.print_title = options.print_title || null;
 	return settings;
 }
 

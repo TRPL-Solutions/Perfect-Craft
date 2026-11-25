@@ -1,0 +1,50 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header and footer. Rows: customer, then total (also carries the notes). */
+	var rows = data || [];
+	var cols = columns || [];
+	var body = [], total = null;
+	for (var k = 0; k < rows.length; k++) {
+		if (rows[k].row_type === "total") { total = rows[k]; } else { body.push(rows[k]); }
+	}
+	var notes = (total && total.notes) || [];
+	var widths = {
+		ac_code: 7.5, customer_name: 13.5, sales_person: 9.5, region: 8.5, city: 7,
+		cartons: 6, credit_days: 5, credit_limit: 7, discount_per_ctn: 6.5, promotion: 7.5,
+		sale_before_discount: 7.5, other_discount: 7, after_discount: 7.5,
+	};
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (c.fieldtype === "Float" || c.fieldname === "discount_per_ctn") { return pp.num(v, 2); }
+		if (c.fieldtype === "Int") { return pp.esc(v); }
+		if (pp.is_num(c)) { return pp.num(v); }
+		return pp.esc(v);
+	};
+	var lead = 0;
+	while (lead < cols.length && !pp.is_num(cols[lead])) { lead += 1; }
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ pp.is_num(cols[h]) ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!body.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No sales found for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < body.length; i++) { var r = body[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ pp.is_num(cols[j]) ? 'pp-num' : '' }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
+	{% } %}
+	{% if (total) { %}
+		<tr class="pp-grand pp-keep-prev">
+			{% if (lead) { %}<td class="pp-label" colspan="{{ lead }}">Grand Total:</td>{% } %}
+			{% for (var x = lead; x < cols.length; x++) { %}<td class="pp-num">{{ cell(total, cols[x]) }}</td>{% } %}
+		</tr>
+	{% } %}
+	</tbody>
+</table>
+<div class="pp-notes">
+	TOTAL NET SALE AMOUNT = sale before discount (price list rate × qty). PROMOTION AMOUNT = Customer Referral discounts{% if (cols.some(function (c) { return c.fieldname === "other_discount"; })) { %}; OTHER DISCOUNT = manual price cuts and invoice discounts{% } %}. AFTER DISCOUNT = billed amount. All amounts before tax; credit notes deducted. DISCOUNT PER CTN = promotion ÷ cartons that got it.
+	{% for (var n = 0; n < notes.length; n++) { %}<br><b>Check:</b> {{ pp.esc(notes[n]) }}{% } %}
+</div>

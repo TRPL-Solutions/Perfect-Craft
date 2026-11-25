@@ -1,7 +1,8 @@
 # Copyright (c) 2026, TRPL Solutions and contributors
 # For license information, please see license.txt
 
-"""Shared logic for the carton sales reports (City Wise Sales Report, SKU Wise Sales Analysis).
+"""Shared logic for the carton sales reports (City Wise Sales Report, SKU Wise Sales Analysis,
+Customer Wise Discount Report).
 
 Period    From/To Year and From/To Month, like the client's Excel. Each year from From Year to
           To Year starts one period:
@@ -10,8 +11,9 @@ Period    From/To Year and From/To Month, like the client's Excel. Each year fro
             From Month >  To Month: a season over the year end (2025-2026, Jul-Feb = Jul 2025-
             Feb 2026 and Jul 2026-Feb 2027).
           Reports show one column/row per month NAME, summing that month over all periods.
-Lines     Submitted Sales Invoice items; credit notes count negative. Cartons = stock_qty / the
-          item's "Carton" UOM factor; items without one keep their stock qty in unconverted_qty.
+Lines     Submitted Sales Invoice items in the period (or a plain date range); credit notes count
+          negative. Cartons = stock_qty / the item's "Carton" UOM factor; items without one keep
+          their stock qty in unconverted_qty.
 Officers  The invoice's Sales Team. Quantities are split by allocated_percentage only when the
           Sales Officer filter is used; otherwise every line keeps its full quantity.
 Options   get_filter_options: whitelisted filter suggestions for every desk user (the reports have
@@ -158,25 +160,32 @@ def plural(count, singular, plural_form):
 # ============================================================
 
 
-def get_invoice_lines(filters, period):
+def get_invoice_lines(filters, period=None):
 	"""Submitted invoice items in the period with geography, brand/SKU, cartons and officers.
+
+	period: the months from get_period; without it, every date from filters.from_date to
+	filters.to_date (date range reports such as Customer Wise Discount Report).
 
 	Each line: invoice, posting_date, month (number), customer, customer_name, region, city,
 	area, item_code, item_name, item_group, brand, sku, cartons, unconverted_qty, factor
-	(share counted, 1 without a Sales Officer filter) and officers.
+	(share counted, 1 without a Sales Officer filter) and officers. Also the invoice line's
+	prices and amounts in company currency (item_row, is_return, sales_invoice_item, qty, uom,
+	base_price_list_rate, margin_type, base_rate_with_margin, base_rate, base_amount,
+	base_net_amount, pricing_rules), unscaled by factor.
 	"""
 	conditions = [
 		"si.docstatus = 1",
 		"si.company = %(company)s",
 		"si.posting_date between %(from_date)s and %(to_date)s",
-		"(year(si.posting_date) * 100 + month(si.posting_date)) in %(year_months)s",
 	]
 	values = {
 		"company": filters.company,
 		"from_date": filters.from_date,
 		"to_date": filters.to_date,
-		"year_months": [year * 100 + month for year, month in period.year_months],
 	}
+	if period:
+		conditions.append("(year(si.posting_date) * 100 + month(si.posting_date)) in %(year_months)s")
+		values["year_months"] = [year * 100 + month for year, month in period.year_months]
 
 	if filters.customer:
 		values["customers"] = filters.customer
@@ -205,7 +214,10 @@ def get_invoice_lines(filters, period):
 			coalesce(nullif(cust.customer_name, ''), si.customer_name, si.customer) as customer_name,
 			cust.territory, cust.customer_primary_address,
 			sii.item_code, coalesce(item.item_name, sii.item_name) as item_name, item.item_group,
-			nullif(item.brand, '') as brand, nullif(item.custom_sku, '') as sku, sii.stock_qty
+			nullif(item.brand, '') as brand, nullif(item.custom_sku, '') as sku, sii.stock_qty,
+			sii.name as item_row, si.is_return, sii.sales_invoice_item, sii.qty, sii.uom,
+			sii.base_price_list_rate, sii.margin_type, sii.base_rate_with_margin, sii.base_rate,
+			sii.base_amount, sii.base_net_amount, sii.pricing_rules
 		from `tabSales Invoice` si
 		inner join `tabSales Invoice Item` sii on sii.parent = si.name and sii.parenttype = 'Sales Invoice'
 		left join `tabItem` item on item.name = sii.item_code

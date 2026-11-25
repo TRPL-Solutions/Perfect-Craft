@@ -23,7 +23,12 @@ frappe.query_reports["SKU Wise Sales Analysis"] = {
 		// Period first, like the client's Excel.
 		pc_sku_select("from_year", __("From Year"), pc_sku_years(), String(moment().year())),
 		pc_sku_select("to_year", __("To Year"), pc_sku_years(), String(moment().year())),
-		pc_sku_select("from_month", __("From Month"), PC_SKU_MONTHS, PC_SKU_MONTHS[pc_sku_default_start_month()]),
+		pc_sku_select(
+			"from_month",
+			__("From Month"),
+			PC_SKU_MONTHS,
+			PC_SKU_MONTHS[pc_sku_default_start_month()]
+		),
 		pc_sku_select("to_month", __("To Month"), PC_SKU_MONTHS, PC_SKU_MONTHS[moment().month()]),
 		{
 			fieldname: "company",
@@ -61,8 +66,37 @@ frappe.query_reports["SKU Wise Sales Analysis"] = {
 		pc_sku_multi("sales_person", __("Sales Officer"), "Sales Person"),
 	],
 
+	onload(report) {
+		// Print preview / PDF of the rows and filters on screen (public/js/pc_report_print.bundle.js,
+		// table: sku_wise_sales_analysis.html).
+		pc_report_print.setup(report, {
+			title: __("SKU Wise Sales Analysis"),
+			orientation: "Landscape",
+			font_size: 8,
+			subtitle: __("Brand × SKU, cartons"),
+			period: pc_report_print.month_period,
+			print_filters: "print_filters",
+			filters: [
+				["brand", "Sub Category"],
+				["sku", "SKU"],
+				["item_group", "Item Group"],
+				["customer", "Customer"],
+				["city", "City"],
+				["territory", "Region"],
+				["area", "Area"],
+				["sales_person", "Sales Officer"],
+			],
+		});
+	},
+
 	formatter(value, row, column, data, default_formatter) {
-		if (data && data.row_type === "share" && pc_sku_is_value_column(column) && value != null && value !== "") {
+		if (
+			data &&
+			data.row_type === "share" &&
+			pc_sku_is_value_column(column) &&
+			value != null &&
+			value !== ""
+		) {
 			value = `${format_number(value, null, 1)}%`;
 		} else {
 			value = default_formatter(value, row, column, data);
@@ -79,8 +113,10 @@ frappe.query_reports["SKU Wise Sales Analysis"] = {
 		const extremes = pc_sku_extremes(column.fieldname);
 		if (data.row_type === "month" && extremes && extremes.max !== extremes.min) {
 			const raw = data[column.fieldname];
-			if (Math.abs(raw - extremes.max) < 0.0005) return `<span class="pc-sku-best">${value}</span>`;
-			if (Math.abs(raw - extremes.min) < 0.0005) return `<span class="pc-sku-worst">${value}</span>`;
+			if (Math.abs(raw - extremes.max) < 0.0005)
+				return `<span class="pc-sku-best">${value}</span>`;
+			if (Math.abs(raw - extremes.min) < 0.0005)
+				return `<span class="pc-sku-worst">${value}</span>`;
 		}
 		return value;
 	},
@@ -102,7 +138,9 @@ frappe.query_reports["SKU Wise Sales Analysis"] = {
 				);
 			}
 			if (column.description) {
-				wrapper.find(`.dt-cell--header-${column.colIndex}`).attr("title", column.description);
+				wrapper
+					.find(`.dt-cell--header-${column.colIndex}`)
+					.attr("title", column.description);
 			}
 		}
 		$("#pc-sku-styles").remove();

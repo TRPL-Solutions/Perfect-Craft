@@ -1,0 +1,62 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header and footer. Rows: sales_person or item_group (lines), sales_person_total
+	   (Group By Sales Person and Item Group), grand_total. */
+	var rows = data || [];
+	var cols = columns || [];
+	var labels = {
+		target_qty: "Target (Ctn)",
+		achieved_qty: "Achieved (Ctn)",
+		achievement: "Achieved %",
+		invoiced_amount: "Invoiced",
+		received_amount: "Received",
+		outstanding_amount: "Outstanding",
+		unconverted_qty: "Qty w/o Carton UOM",
+	};
+	var widths = {
+		sales_person: 15,
+		item_group: 15,
+		target_qty: 9,
+		achieved_qty: 9.5,
+		achievement: 8.5,
+		invoiced_amount: 11,
+		received_amount: 11,
+		outstanding_amount: 11,
+		remarks: 14,
+		unconverted_qty: 9,
+	};
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (c.fieldtype === "Percent") { return pp.pct(v); }
+		if (c.fieldtype === "Float") { return pp.num(v, 2); }
+		if (pp.is_num(c)) { return pp.num(v); }
+		return pp.esc(v);
+	};
+	var remark_class = { "Received": "pp-good", "Not Received": "pp-bad" };
+	var lead = 0;
+	while (lead < cols.length && !pp.is_num(cols[lead])) { lead += 1; }
+	var previous_person = null;
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ pp.is_num(cols[h]) ? 'pp-num' : '' }}">{{ pp.esc(labels[cols[h].fieldname] || cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No targets or sales for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; var total = r.row_type === "sales_person_total" || r.row_type === "grand_total"; %}
+		<tr class="{{ r.row_type === 'grand_total' ? 'pp-grand pp-keep-prev' : (total ? 'pp-subtotal pp-keep-prev' : 'pp-line') }}">
+			{% if (total && lead) { %}
+			<td class="pp-label" colspan="{{ lead }}">{{ pp.esc(r.sales_person) }}</td>
+			{% } %}
+			{% for (var j = total ? lead : 0; j < cols.length; j++) { var c = cols[j]; %}
+			<td class="{{ pp.is_num(c) ? 'pp-num' : '' }} {{ c.fieldname === 'remarks' ? (remark_class[r.remarks] || '') : '' }}">{{ (!total && c.fieldname === "sales_person" && r.row_type === "item_group" && r.sales_person === previous_person) ? "" : cell(r, c) }}</td>
+			{% } %}
+		</tr>
+		{% if (!total) { previous_person = r.sales_person; } else { previous_person = null; } %}
+	{% } %}
+	</tbody>
+</table>

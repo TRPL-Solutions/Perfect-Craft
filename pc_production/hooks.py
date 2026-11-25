@@ -338,6 +338,11 @@ fixtures = [
 ]
 
 
+# Shared "Print Report" preview / PDF engine of the script reports. A bundle: bench build gives it
+# a content-hashed file name, so browsers load the new version after every build.
+app_include_js = ["pc_report_print.bundle.js"]
+
+
 doctype_js = {
     "Stock Entry": "public/js/stock_entry.js",
     "Stock Reconciliation": "public/js/stock_reconciliation.js",
