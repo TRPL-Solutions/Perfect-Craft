@@ -762,293 +762,295 @@ def apply_monthly_production_overhead(
     ):
         doc.custom_total_estimated_expenses = 0
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # Only Manufacture
-    # ---------------------------------------------------------
+    # TEMP: disabled on lead's request
 
-    if doc.purpose != "Manufacture":
-        return
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # Only Manufacture
+    # # ---------------------------------------------------------
 
-    if not doc.meta.has_field(
-        "custom_expenses"
-    ):
-        frappe.throw(
-            _(
-                "Stock Entry Expenses customization "
-                "is missing. Run bench migrate for "
-                "the pc_production app."
-            )
-        )
+    # if doc.purpose != "Manufacture":
+    #     return
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED
-    # ---------------------------------------------------------
+    # if not doc.meta.has_field(
+    #     "custom_expenses"
+    # ):
+    #     frappe.throw(
+    #         _(
+    #             "Stock Entry Expenses customization "
+    #             "is missing. Run bench migrate for "
+    #             "the pc_production app."
+    #         )
+    #     )
 
-    if (
-        not doc.company
-        or not doc.posting_date
-    ):
-        return
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED
+    # # ---------------------------------------------------------
 
-    # ---------------------------------------------------------
-    # Find Finished Good
-    # ---------------------------------------------------------
+    # if (
+    #     not doc.company
+    #     or not doc.posting_date
+    # ):
+    #     return
 
-    finished_rows = (
-        get_finished_goods_rows(doc)
-    )
+    # # ---------------------------------------------------------
+    # # Find Finished Good
+    # # ---------------------------------------------------------
 
-    if not finished_rows:
-        # Allow incomplete Draft until FG exists.
-        return
+    # finished_rows = (
+    #     get_finished_goods_rows(doc)
+    # )
 
-    if len(finished_rows) > 1:
-        frappe.throw(
-            _(
-                "Monthly Production Setting estimated "
-                "expenses support one Finished Good "
-                "item per Manufacture Stock Entry."
-            )
-        )
+    # if not finished_rows:
+    #     # Allow incomplete Draft until FG exists.
+    #     return
 
-    finished_row = (
-        finished_rows[0]
-    )
+    # if len(finished_rows) > 1:
+    #     frappe.throw(
+    #         _(
+    #             "Monthly Production Setting estimated "
+    #             "expenses support one Finished Good "
+    #             "item per Manufacture Stock Entry."
+    #         )
+    #     )
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # Use Stock UOM quantity.
-    # ---------------------------------------------------------
+    # finished_row = (
+    #     finished_rows[0]
+    # )
 
-    finished_qty = flt(
-        finished_row.transfer_qty
-    )
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # Use Stock UOM quantity.
+    # # ---------------------------------------------------------
 
-    if finished_qty <= 0:
-        finished_qty = (
-            flt(finished_row.qty)
-            * flt(
-                finished_row.conversion_factor
-                or 1
-            )
-        )
+    # finished_qty = flt(
+    #     finished_row.transfer_qty
+    # )
 
-    if finished_qty <= 0:
-        return
+    # if finished_qty <= 0:
+    #     finished_qty = (
+    #         flt(finished_row.qty)
+    #         * flt(
+    #             finished_row.conversion_factor
+    #             or 1
+    #         )
+    #     )
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # Prefer Parent Cost Center.
-    # Otherwise use Finished Good row Cost Center.
-    # ---------------------------------------------------------
+    # if finished_qty <= 0:
+    #     return
 
-    cost_center = (
-        doc.cost_center
-        or finished_row.cost_center
-    )
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # Prefer Parent Cost Center.
+    # # Otherwise use Finished Good row Cost Center.
+    # # ---------------------------------------------------------
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # Fetch correct Monthly Production Setting.
-    # ---------------------------------------------------------
+    # cost_center = (
+    #     doc.cost_center
+    #     or finished_row.cost_center
+    # )
 
-    setting = get_monthly_setting(
-        company=
-            doc.company,
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # Fetch correct Monthly Production Setting.
+    # # ---------------------------------------------------------
 
-        cost_center=
-            cost_center,
+    # setting = get_monthly_setting(
+    #     company=
+    #         doc.company,
 
-        posting_date=
-            doc.posting_date,
-    )
+    #     cost_center=
+    #         cost_center,
 
-    expected_qty = flt(
-        setting.expected_qty
-    )
+    #     posting_date=
+    #         doc.posting_date,
+    # )
 
-    if expected_qty <= 0:
-        frappe.throw(
-            _(
-                "Expected Qty must be greater "
-                "than zero in Monthly Production "
-                "Setting {0}."
-            ).format(
-                frappe.bold(
-                    setting.name
-                )
-            )
-        )
+    # expected_qty = flt(
+    #     setting.expected_qty
+    # )
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # If Stock Entry Cost Center was blank but MPS resolved it,
-    # apply MPS Cost Center to parent + Items.
-    # ---------------------------------------------------------
+    # if expected_qty <= 0:
+    #     frappe.throw(
+    #         _(
+    #             "Expected Qty must be greater "
+    #             "than zero in Monthly Production "
+    #             "Setting {0}."
+    #         ).format(
+    #             frappe.bold(
+    #                 setting.name
+    #             )
+    #         )
+    #     )
 
-    if not doc.cost_center:
-        doc.cost_center = (
-            setting.cost_center
-        )
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # If Stock Entry Cost Center was blank but MPS resolved it,
+    # # apply MPS Cost Center to parent + Items.
+    # # ---------------------------------------------------------
 
-        sync_item_cost_centers(doc)
+    # if not doc.cost_center:
+    #     doc.cost_center = (
+    #         setting.cost_center
+    #     )
 
-    total_estimated = 0
+    #     sync_item_cost_centers(doc)
 
-    # ---------------------------------------------------------
-    # OLD LOGIC PRESERVED:
-    # Each MPS expense is calculated separately.
-    # ---------------------------------------------------------
+    # total_estimated = 0
 
-    for expense in (
-        setting.get("expenses")
-        or []
-    ):
+    # # ---------------------------------------------------------
+    # # OLD LOGIC PRESERVED:
+    # # Each MPS expense is calculated separately.
+    # # ---------------------------------------------------------
 
-        if not expense.type_of_expense:
-            continue
+    # for expense in (
+    #     setting.get("expenses")
+    #     or []
+    # ):
 
-        monthly_amount = flt(
-            expense.expense_amount
-        )
+    #     if not expense.type_of_expense:
+    #         continue
 
-        if monthly_amount <= 0:
-            continue
+    #     monthly_amount = flt(
+    #         expense.expense_amount
+    #     )
 
-        validate_estimated_expense_account(
-            expense.type_of_expense,
-            doc.company,
-        )
+    #     if monthly_amount <= 0:
+    #         continue
 
-        # -----------------------------------------------------
-        # EXACT OLD FORMULA:
-        #
-        # Monthly Expense / Expected Qty
-        # -----------------------------------------------------
+    #     validate_estimated_expense_account(
+    #         expense.type_of_expense,
+    #         doc.company,
+    #     )
 
-        expense_per_qty = (
-            monthly_amount
-            / expected_qty
-        )
+    #     # -----------------------------------------------------
+    #     # EXACT OLD FORMULA:
+    #     #
+    #     # Monthly Expense / Expected Qty
+    #     # -----------------------------------------------------
 
-        # -----------------------------------------------------
-        # EXACT OLD FORMULA:
-        #
-        # Expense Per Qty * THIS Stock Entry Finished Qty
-        # -----------------------------------------------------
+    #     expense_per_qty = (
+    #         monthly_amount
+    #         / expected_qty
+    #     )
 
-        allocated_amount = (
-            expense_per_qty
-            * finished_qty
-        )
+    #     # -----------------------------------------------------
+    #     # EXACT OLD FORMULA:
+    #     #
+    #     # Expense Per Qty * THIS Stock Entry Finished Qty
+    #     # -----------------------------------------------------
 
-        # -----------------------------------------------------
-        # ONLY REQUIRED CHANGE:
-        #
-        # OLD:
-        #     additional_costs
-        #
-        # NEW:
-        #     custom_expenses
-        # -----------------------------------------------------
+    #     allocated_amount = (
+    #         expense_per_qty
+    #         * finished_qty
+    #     )
 
-        doc.append(
-            "custom_expenses",
-            {
-                "expense_account":
-                    expense.type_of_expense,
+    #     # -----------------------------------------------------
+    #     # ONLY REQUIRED CHANGE:
+    #     #
+    #     # OLD:
+    #     #     additional_costs
+    #     #
+    #     # NEW:
+    #     #     custom_expenses
+    #     # -----------------------------------------------------
 
-                "description":
-                    (
-                        f"{AUTO_PREFIX} "
-                        f"{setting.name} | "
-                        f"{expense.type_of_expense}"
-                    ),
+    #     doc.append(
+    #         "custom_expenses",
+    #         {
+    #             "expense_account":
+    #                 expense.type_of_expense,
 
-                "estimated_amount":
-                    allocated_amount,
+    #             "description":
+    #                 (
+    #                     f"{AUTO_PREFIX} "
+    #                     f"{setting.name} | "
+    #                     f"{expense.type_of_expense}"
+    #                 ),
 
-                "monthly_production_setting":
-                    setting.name,
-            },
-        )
+    #             "estimated_amount":
+    #                 allocated_amount,
 
-        total_estimated += (
-            allocated_amount
-        )
+    #             "monthly_production_setting":
+    #                 setting.name,
+    #         },
+    #     )
 
-    if total_estimated <= 0:
-        frappe.throw(
-            _(
-                "No estimated production expense "
-                "amount found in Monthly Production "
-                "Setting {0}."
-            ).format(
-                frappe.bold(
-                    setting.name
-                )
-            )
-        )
+    #     total_estimated += (
+    #         allocated_amount
+    #     )
 
-    if doc.meta.has_field(
-        "custom_total_estimated_expenses"
-    ):
-        doc.custom_total_estimated_expenses = (
-            total_estimated
-        )
+    # if total_estimated <= 0:
+    #     frappe.throw(
+    #         _(
+    #             "No estimated production expense "
+    #             "amount found in Monthly Production "
+    #             "Setting {0}."
+    #         ).format(
+    #             frappe.bold(
+    #                 setting.name
+    #             )
+    #         )
+    #     )
 
-    # ---------------------------------------------------------
-    # ONE aggregated standard Additional Costs row.
-    #
-    # ERPNext then capitalizes it into FG valuation, sets
-    # total_additional_costs and posts:
-    #     Dr Stock Adjustment / Cr Over/Under Absorption
-    #
-    # The custom_expenses rows above stay informational.
-    # remove_legacy_auto_overhead_rows() (called above) removes
-    # this row before every rebuild, so it is never duplicated.
-    # ---------------------------------------------------------
+    # if doc.meta.has_field(
+    #     "custom_total_estimated_expenses"
+    # ):
+    #     doc.custom_total_estimated_expenses = (
+    #         total_estimated
+    #     )
 
-    absorption_account = (
-        get_over_under_absorption_account(
-            doc.company
-        )
-    )
+    # # ---------------------------------------------------------
+    # # ONE aggregated standard Additional Costs row.
+    # #
+    # # ERPNext then capitalizes it into FG valuation, sets
+    # # total_additional_costs and posts:
+    # #     Dr Stock Adjustment / Cr Over/Under Absorption
+    # #
+    # # The custom_expenses rows above stay informational.
+    # # remove_legacy_auto_overhead_rows() (called above) removes
+    # # this row before every rebuild, so it is never duplicated.
+    # # ---------------------------------------------------------
 
-    if absorption_account in {
-        row.expense_account
-        for row in doc.get("custom_expenses")
-    }:
-        frappe.throw(
-            _(
-                "Over/Under Absorption Account {0} cannot be "
-                "one of the Monthly Production Setting "
-                "expense accounts."
-            ).format(
-                frappe.bold(
-                    absorption_account
-                )
-            )
-        )
+    # absorption_account = (
+    #     get_over_under_absorption_account(
+    #         doc.company
+    #     )
+    # )
 
-    doc.append(
-        "additional_costs",
-        {
-            "expense_account":
-                absorption_account,
+    # if absorption_account in {
+    #     row.expense_account
+    #     for row in doc.get("custom_expenses")
+    # }:
+    #     frappe.throw(
+    #         _(
+    #             "Over/Under Absorption Account {0} cannot be "
+    #             "one of the Monthly Production Setting "
+    #             "expense accounts."
+    #         ).format(
+    #             frappe.bold(
+    #                 absorption_account
+    #             )
+    #         )
+    #     )
 
-            "description":
-                (
-                    f"{AUTO_PREFIX} "
-                    f"{setting.name} | "
-                    "Total Estimated Expenses"
-                ),
+    # doc.append(
+    #     "additional_costs",
+    #     {
+    #         "expense_account":
+    #             absorption_account,
 
-            "amount":
-                total_estimated,
-        },
-    )
+    #         "description":
+    #             (
+    #                 f"{AUTO_PREFIX} "
+    #                 f"{setting.name} | "
+    #                 "Total Estimated Expenses"
+    #             ),
+
+    #         "amount":
+    #             total_estimated,
+    #     },
+    # )
 
 
 def get_finished_goods_rows(doc):
