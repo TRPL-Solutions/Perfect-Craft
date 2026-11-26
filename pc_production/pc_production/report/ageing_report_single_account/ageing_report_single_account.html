@@ -1,0 +1,46 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header (title, "As on ...") and footer. Above the table: A/C Code, A/C Title, A/C
+	   Balance (from the TOTAL row). Rows: invoices, unallocated items, then TOTAL (also carries the notes). */
+	var rows = data || [];
+	var cols = columns || [];
+	var body = [], total = {};
+	for (var k = 0; k < rows.length; k++) {
+		if (rows[k].row_type === "total") { total = rows[k]; } else { body.push(rows[k]); }
+	}
+	var notes = total.notes || [];
+	var widths = { due_date: 13, invoice: 30, cartons: 10, ageing_days: 11, invoice_amount: 18, balance: 18 };
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (c.fieldtype === "Date") { return pp.esc(frappe.datetime.str_to_user(v)); }
+		if (c.fieldtype === "Float") { return pp.num(v, 0); }
+		if (c.fieldtype === "Int") { return pp.esc(v); }
+		if (pp.is_num(c)) { return pp.num(v); }
+		return pp.esc(v);
+	};
+%}
+<table style="margin: 0 0 6px 0; font-size: 9pt; font-weight: bold;">
+	<tr><td style="padding: 1px 8px 1px 0;">A/C Code</td><td>: {{ pp.esc(total.ac_code) }}</td></tr>
+	<tr><td style="padding: 1px 8px 1px 0;">A/C Title</td><td>: {{ pp.esc(total.ac_title) }}</td></tr>
+	<tr><td style="padding: 1px 8px 1px 0;">A/C Balance</td><td>: {{ pp.esc(total.ac_balance) }}</td></tr>
+</table>
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ pp.is_num(cols[h]) ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!body.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No outstanding invoices on this date</td></tr>
+	{% } %}
+	{% for (var i = 0; i < body.length; i++) { var r = body[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ pp.is_num(cols[j]) ? 'pp-num' : '' }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
+	{% } %}
+	<tr class="pp-grand pp-keep-prev">{% for (var x = 0; x < cols.length; x++) { %}<td class="{{ pp.is_num(cols[x]) ? 'pp-num' : 'pp-label' }}">{{ cols[x].fieldname === "ageing_days" ? "" : cell(total, cols[x]) }}</td>{% } %}</tr>
+	</tbody>
+</table>
+<div class="pp-notes">
+	AGEING DAYS = As On Date − Due Date (negative = not yet due). BALANCE AMOUNT = unpaid on the As On Date; unallocated payments and credit notes are listed with a negative balance, so the total equals the A/C Balance.
+	{% for (var n = 0; n < notes.length; n++) { %}<br><b>Check:</b> {{ pp.esc(notes[n]) }}{% } %}
+</div>

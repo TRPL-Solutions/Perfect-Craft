@@ -4,7 +4,18 @@
 // pc_cws_multi (multi-select filters on report_utils.get_filter_options) comes from here.
 {% include "pc_production/pc_production/report/city_wise_sales_report/city_wise_common.js" %}
 
-frappe.query_reports["Sales Person Year Wise Summary"] = {
+const PC_SPYW_REPORT = "Sales Person Year Wise Summary";
+
+// Every query report shares one page, so the heading added above the table would stay when the
+// user switches to another report. Show it only while this report's route is open (coming back
+// to the report does not re-render it, so it is hidden / shown rather than removed).
+function pc_spyw_toggle_heading() {
+	const route = frappe.get_route() || [];
+	const here = route[0] === "query-report" && route[1] === PC_SPYW_REPORT;
+	$(".pc-spyw-heading").toggle(here);
+}
+
+frappe.query_reports[PC_SPYW_REPORT] = {
 	filters: [
 		{
 			fieldname: "company",
@@ -51,6 +62,11 @@ frappe.query_reports["Sales Person Year Wise Summary"] = {
 	],
 
 	onload(report) {
+		// Once per page load: hide the heading on other routes (see pc_spyw_toggle_heading).
+		if (!window.pc_spyw_route_hook) {
+			frappe.router.on("change", pc_spyw_toggle_heading);
+			window.pc_spyw_route_hook = true;
+		}
 		// Print preview / PDF of the rows and filters on screen (public/js/pc_report_print.bundle.js,
 		// table: sales_person_year_wise_summary.html). Title from the TOTAL row.
 		const info = (ctx) => (ctx.data || []).find((r) => r && r.row_type === "total") || {};
@@ -85,6 +101,7 @@ frappe.query_reports["Sales Person Year Wise Summary"] = {
 				.insertBefore(report.$report);
 		}
 		$heading.text(title);
+		pc_spyw_toggle_heading();
 	},
 
 	formatter(value, row, column, data, default_formatter) {
