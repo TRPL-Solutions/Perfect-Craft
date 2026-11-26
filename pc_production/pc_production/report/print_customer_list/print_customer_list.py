@@ -11,8 +11,8 @@ REGION       Territory.  CITY / AREA: the customer's primary Address (city / cus
 DISCOUNT     Per-carton discount on the customer's Customer Referral active today (submitted,
              same company, valid_from/valid_upto around today): its "Discount Amount" item
              rows converted to one Carton (a Nos row x Nos per Carton). Different amounts per
-             item show as a range (100-150). Discount Percentage / Rate rows and items without
-             a Carton UOM have no per-carton amount: listed in the note under the table.
+             item show as a range (100-150). Discount Percentage / Rate rows are ignored
+             (discounts are per carton). Items without a Carton UOM: listed in a note.
 BALANCE      Receivable balance up to today: debit - credit of the customer's GL entries in
              the company. A credit balance (we owe the customer) shows with "CR": 56,000 CR.
 """
@@ -148,11 +148,11 @@ def set_discounts(rows, company):
 	carton = get_carton_factors({line.item_code for line in lines})
 	uom_factor = get_uom_factors({(line.item_code, line.uom) for line in lines})
 
-	amounts, skipped_type, no_carton = {}, set(), set()
+	amounts, no_carton = {}, set()
 	for line in lines:
 		name = by_customer[line.customer].customer_name
+		# Discounts are per carton: Discount Percentage / Rate rows are ignored, without a note.
 		if (line.rate_or_discount or "Discount Amount") != "Discount Amount":
-			skipped_type.add(f"{name} ({line.item_code}: {_(line.rate_or_discount)})")
 			continue
 		factor = uom_factor.get((line.item_code, line.uom))
 		if not carton.get(line.item_code) or not factor:
@@ -171,8 +171,6 @@ def set_discounts(rows, company):
 		row.discount = fmt_amount(low) if high - low <= AMOUNT_TOLERANCE else f"{fmt_amount(low)}{EN_DASH}{fmt_amount(high)}"
 
 	notes = []
-	if skipped_type:
-		notes.append(_("Referral rows with no per-carton amount (Discount Percentage / Rate), not in Discount: {0}").format(", ".join(sorted(skipped_type))))
 	if no_carton:
 		notes.append(_("Referral items without a Carton UOM, not in Discount: {0}").format(", ".join(sorted(no_carton))))
 	return notes
