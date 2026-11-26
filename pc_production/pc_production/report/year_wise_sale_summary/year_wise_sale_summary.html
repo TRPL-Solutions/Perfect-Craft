@@ -1,0 +1,41 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header (title, period, S/O) and footer. Rows: one per month, then TOTAL CTN (also
+	   carries the notes), AVERAGE PER MONTH, MAX CTN and MIN CTN. */
+	var rows = data || [];
+	var cols = columns || [];
+	var body = [], foot = [], info = {};
+	for (var k = 0; k < rows.length; k++) {
+		if (rows[k].row_type === "month") { body.push(rows[k]); } else { foot.push(rows[k]); }
+		if (rows[k].row_type === "total") { info = rows[k]; }
+	}
+	var widths = { month: 14 };
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (c.fieldtype === "Percent") { return pp.pct(v, 1); }
+		if (c.fieldtype === "Float") { return pp.num(v, 0); }
+		return pp.esc(v);
+	};
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ pp.is_num(cols[h]) ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!body.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No sales found for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < body.length; i++) { var r = body[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ pp.is_num(cols[j]) ? 'pp-num' : '' }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
+	{% } %}
+	{% for (var f = 0; f < foot.length; f++) { var t = foot[f]; %}
+		<tr class="{{ f === 0 ? 'pp-total pp-keep-prev' : 'pp-foot' }}">{% for (var x = 0; x < cols.length; x++) { %}<td class="{{ pp.is_num(cols[x]) ? 'pp-num' : 'pp-label' }}">{{ cell(t, cols[x]) }}</td>{% } %}</tr>
+	{% } %}
+	</tbody>
+</table>
+<div class="pp-notes">
+	% = brand ÷ Total CTN. TOTAL CTN %: brand total ÷ grand total. AVERAGE PER MONTH = total ÷ months in the range (months without sales included). MAX / MIN CTN: highest / lowest month; their % = highest / lowest monthly share.
+	{% if (info.quality_notes) { %}<br><b>Check:</b> {{ pp.esc(info.quality_notes) }}{% } %}
+</div>
