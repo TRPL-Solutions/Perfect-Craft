@@ -1,0 +1,39 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header (title "SALE PERSON: ...", period) and footer. Rows: one per month, then TOTAL
+	   (also carries the notes) and AVERAGE PER MONTH. Only the columns on screen are printed. */
+	var rows = data || [];
+	var cols = columns || [];
+	var body = [], foot = [], info = {};
+	for (var k = 0; k < rows.length; k++) {
+		if (rows[k].row_type === "month") { body.push(rows[k]); } else { foot.push(rows[k]); }
+		if (rows[k].row_type === "total") { info = rows[k]; }
+	}
+	var notes = info.notes || [];
+	var widths = { month: 28 };
+	var cell = function (r, c) {
+		var v = r[c.fieldname];
+		if (pp.blank(v)) { return ""; }
+		if (c.fieldtype === "Float") { return pp.num(v, 0); }
+		if (pp.is_num(c)) { return pp.num(v); }
+		return pp.esc(v);
+	};
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ pp.is_num(cols[h]) ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% for (var i = 0; i < body.length; i++) { var r = body[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { %}<td class="{{ pp.is_num(cols[j]) ? 'pp-num' : '' }}">{{ cell(r, cols[j]) }}</td>{% } %}</tr>
+	{% } %}
+	{% for (var f = 0; f < foot.length; f++) { var t = foot[f]; %}
+		<tr class="{{ f === 0 ? 'pp-total pp-keep-prev' : 'pp-foot' }}">{% for (var x = 0; x < cols.length; x++) { %}<td class="{{ pp.is_num(cols[x]) ? 'pp-num' : 'pp-label' }}">{{ cell(t, cols[x]) }}</td>{% } %}</tr>
+	{% } %}
+	</tbody>
+</table>
+<div class="pp-notes">
+	CARTON QTY and TOTAL AMOUNT (with tax) from submitted Sales Invoices, credit notes deducted. RECEIPT = money received (Payment / Journal Entries), as Recovery Report. AVERAGE PER MONTH = total ÷ months in the range.
+	{% for (var n = 0; n < notes.length; n++) { %}<br><b>Check:</b> {{ pp.esc(notes[n]) }}{% } %}
+</div>
