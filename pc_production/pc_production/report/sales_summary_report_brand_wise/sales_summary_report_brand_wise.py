@@ -9,19 +9,21 @@ from report_utils.get_invoice_lines; with a Sales Person filter every quantity i
 share, as in the other carton reports.
 
 Rows      Grouped by brand (Brand Sort Order): a brand heading, one row per customer that bought
-          the brand (by A/C Title), then the brand's subtotal. A customer shows under every brand
+          the brand (by A/C Code, natural order: 12-999 before 12-1000), then the brand's subtotal. A customer shows under every brand
           it bought. At the end: TOTAL CARTONS and AVERAGE / MONTH.
 Columns   A/C Code (Customer "A/C Code", else the customer ID), A/C Title (customer name), Sales
           Person (the invoices' Sales Team, else the customer's), Customer (the owner: the
           Customer's Primary Contact, blank when none), City, Region, Area, Brand (short name),
           one column per SKU (14# to 6#: descending Sort Order within each Item Group), Total
           Carton and Avg/Month.
-SKUs      The ticked ones, else those that sold.
+SKUs      The ticked ones; else every SKU of the selected Category (all SKUs without one), as the
+          sheet always shows 14# to 6#, plus any other SKU that sold.
 Avg/Month Total Carton / calendar months the date range touches (1-30 Nov = 1, Jul-Nov = 5,
           15 Oct-14 Nov = 2).
 Not shown Items without a Carton UOM (listed in the data check under the table).
 """
 
+import re
 from collections import defaultdict
 
 import frappe
@@ -31,12 +33,16 @@ from frappe.utils import flt, formatdate, getdate
 from pc_production.pc_production.report_utils import (
 	DIVIDE,
 	NO_BRAND,
+	NO_SKU,
 	PACKING_TYPES,
 	QTY_TOLERANCE,
 	count_months,
+	descendants_of,
 	get_brand_sku_layout,
 	get_invoice_lines,
 	get_list,
+	get_ordered_skus,
+	get_sku_order,
 	get_primary_contact_names,
 	get_quality_notes,
 	plural,
@@ -57,7 +63,7 @@ def execute(filters=None):
 		return get_columns([]), [], _("No sales found for the selected filters.")
 
 	layout = get_brand_sku_layout(lines, filters, descending_skus=True)
-	skus = [frappe._dict(name=sku, fieldname=f"s_{idx}") for idx, sku in enumerate(layout.skus)]
+	skus = [frappe._dict(name=sku, fieldname=f"s_{idx}") for idx, sku in enumerate(get_sku_columns(layout, filters))]
 	rows = get_rows(lines, skus)
 	data = get_data(rows, layout, skus, months, filters, quality)
 	return get_columns(skus), data, quality or None
@@ -78,6 +84,25 @@ def validate_filters(filters):
 	filters.customer = [filters.customer] if filters.get("customer") else []
 	if filters.get("packing") not in PACKING_TYPES:
 		filters.packing = None
+
+
+def get_sku_columns(layout, filters):
+	"""SKU columns: the ticked ones (layout.skus); else every SKU of the selected Category (all
+	SKUs without one) plus any other that sold, from 14# down (descending Sort Order per group)."""
+	if filters.sku:
+		return layout.skus
+
+	groups = set(descendants_of("Item Group", filters.item_group)) if filters.item_group else None
+	skus = set(layout.skus) | {
+		d.name for d in get_ordered_skus() if groups is None or d.item_group in groups
+	}
+	order = get_sku_order(descending=True)
+	return sorted(skus, key=lambda n: (n == NO_SKU, order.get(n, len(order)), n.lower()))
+
+
+def natural_key(value):
+	"""'12-999' before '12-1000': digit runs compare as numbers."""
+	return [(0, int(part), "") if part.isdigit() else (1, 0, part.lower()) for part in re.split(r"(\d+)", value or "")]
 
 
 # ============================================================
@@ -150,7 +175,7 @@ def get_data(rows, layout, skus, months, filters, quality):
 		)
 
 		subtotal = defaultdict(float)
-		for row in sorted(by_brand[brand], key=lambda r: ((r.customer_name or "").lower(), r.customer)):
+		for row in sorted(by_brand[brand], key=lambda r: (natural_key(r.ac_code), r.customer)):
 			data.append(
 				{
 					"row_type": "line",
