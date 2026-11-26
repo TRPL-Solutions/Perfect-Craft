@@ -1,0 +1,30 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js), which adds
+	   the page header and footer. One row per customer; the first row carries the notes. */
+	var rows = data || [];
+	var cols = columns || [];
+	var notes = (rows.length && rows[0].notes) || [];
+	var right = { discount: 1, balance: 1 };
+	var widths = {
+		ac_code: 10, customer_name: 22, sales_person: 13, region: 12, city: 10, area: 12,
+		discount: 9, balance: 12,
+	};
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ right[cols[h].fieldname] ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No customers found for the selected filters</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { var c = cols[j]; %}<td class="{{ right[c.fieldname] ? 'pp-num' : '' }}">{{ pp.esc(r[c.fieldname]) }}</td>{% } %}</tr>
+	{% } %}
+	</tbody>
+</table>
+<div class="pp-notes">
+	DISCOUNT = per carton, from the customer's Customer Referral active today. BALANCE = receivable balance up to today; CR = credit balance (amount owed to the customer).
+	{% for (var n = 0; n < notes.length; n++) { %}<br><b>Check:</b> {{ pp.esc(notes[n]) }}{% } %}
+</div>
