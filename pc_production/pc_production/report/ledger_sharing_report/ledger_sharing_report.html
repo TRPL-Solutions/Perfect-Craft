@@ -1,0 +1,23 @@
+{%
+	/* Print table, rendered by the shared print engine (public/js/pc_report_print.bundle.js): the
+	   Sales Officer's customers with aging days and balance (the Ledger link is not printed). */
+	var rows = data || [];
+	var cols = (columns || []).filter(function (c) { return c.fieldname !== "ledger_url"; });
+	var right = { aging_days: 1, balance: 1 };
+	var widths = { ac_code: 14, customer_name: 40, aging_days: 12, balance: 17, mobile: 17 };
+%}
+<table class="pp-table">
+	{{ pp.colgroup(cols, widths) }}
+	<thead>
+		<tr>{% for (var h = 0; h < cols.length; h++) { %}<th class="{{ right[cols[h].fieldname] ? 'pp-num' : '' }}">{{ pp.esc(cols[h].label) }}</th>{% } %}</tr>
+	</thead>
+	<tbody>
+	{% if (!rows.length) { %}
+		<tr class="pp-empty"><td colspan="{{ cols.length || 1 }}">No customers for this Sales Officer</td></tr>
+	{% } %}
+	{% for (var i = 0; i < rows.length; i++) { var r = rows[i]; %}
+		<tr class="pp-line">{% for (var j = 0; j < cols.length; j++) { var c = cols[j]; %}<td class="{{ right[c.fieldname] ? 'pp-num' : '' }}">{{ pp.esc(r[c.fieldname]) }}</td>{% } %}</tr>
+	{% } %}
+	</tbody>
+</table>
+<div class="pp-notes">AGING DAYS = days of the oldest unpaid invoice on the As On Date. BALANCE AMOUNT: CR = credit balance (amount owed to the customer).</div>

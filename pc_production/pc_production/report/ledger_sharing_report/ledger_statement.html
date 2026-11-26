@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+	/* Customer ledger PDF (ledger_sharing_report.get_ledger_pdf); fonts added by report_print.add_font_faces. */
+	body { font-family: "PC Print Sans", Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; }
+	.company { font-size: 14pt; font-weight: bold; text-align: center; text-decoration: underline; }
+	.title { font-size: 11pt; font-weight: bold; text-align: center; margin-top: 3px; }
+	.period { font-size: 8.5pt; text-align: center; margin: 2px 0 8px; }
+	.party td { padding: 1px 8px 1px 0; font-weight: bold; }
+	table.ledger { width: 100%; border-collapse: collapse; margin-top: 6px; }
+	table.ledger th { background: #e3e3e3; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 3px 4px; text-align: left; }
+	table.ledger td { padding: 2px 4px; border-bottom: 1px dotted #999; vertical-align: top; }
+	table.ledger tr { page-break-inside: avoid; }
+	table.ledger .num { text-align: right; white-space: nowrap; }
+	tr.bold td { font-weight: bold; border-bottom: none; }
+	tr.total td { border-top: 1.5px solid #000; border-bottom: 1.5px double #000; }
+	.foot { margin-top: 8px; font-size: 7pt; color: #333; }
+</style>
+</head>
+<body>
+	<div class="company">{{ company }}</div>
+	<div class="title">CUSTOMER LEDGER</div>
+	<div class="period">{{ from_date }} to {{ to_date }}</div>
+	<table class="party">
+		<tr><td>A/C Code</td><td>: {{ ac_code }}</td></tr>
+		<tr><td>A/C Title</td><td>: {{ customer_name }}</td></tr>
+		<tr><td>Balance</td><td>: {{ closing_label }}</td></tr>
+	</table>
+	<table class="ledger">
+		<thead>
+			<tr><th style="width: 12%">Date</th><th style="width: 20%">Voucher</th><th>Description</th>
+				<th class="num" style="width: 14%">Debit</th><th class="num" style="width: 14%">Credit</th><th class="num" style="width: 15%">Balance</th></tr>
+		</thead>
+		<tbody>
+			<tr class="bold"><td>{{ from_date }}</td><td></td><td>Opening Balance</td><td></td><td></td><td class="num">{{ opening_label }}</td></tr>
+			{% for line in lines %}
+			<tr><td>{{ line.date }}</td><td>{{ line.voucher }}</td><td>{{ line.description }}</td>
+				<td class="num">{{ fmt(line.debit) }}</td><td class="num">{{ fmt(line.credit) }}</td><td class="num">{{ line.balance_label }}</td></tr>
+			{% endfor %}
+			<tr class="bold total"><td>{{ to_date }}</td><td></td><td>Closing Balance</td>
+				<td class="num">{{ fmt(total_debit) }}</td><td class="num">{{ fmt(total_credit) }}</td><td class="num">{{ closing_label }}</td></tr>
+		</tbody>
+	</table>
+	<div class="foot">CR = credit balance (amount owed to the customer). Printed on {{ printed_on }}.</div>
+</body>
+</html>
