@@ -394,6 +394,14 @@ override_doctype_class = {
 
 doc_events = {
 
+    # Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>-<Brand Short Name>-<n>
+    "Item": {
+        "before_insert": "pc_production.item_code.set_auto_item_code",
+    },
+    "Item Group": {
+        "validate": "pc_production.item_code.validate_item_group_abbreviation",
+    },
+
     # Gate Pass: carton Delivery Charges + transport Purchase Invoice
     "Delivery Note": {
         "before_validate":
