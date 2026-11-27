@@ -336,9 +336,13 @@ fixtures = [
                 "in",
                 [
                     "custom_production",
+                    "custom_production_section",
                     "custom_production_month",
+                    "custom_production_column",
                     "custom_production_year",
+                    "custom_production_section_2",
                     "custom_production_cost_center",
+                    "custom_production_column_2",
                 ],
             ],
         ],
@@ -476,4 +480,15 @@ after_migrate = [
     # "pc_production.print_utils.ensure_gate_pass_print_format",
 
     "pc_production.sales_invoice_print.ensure_sales_invoice_print_format",
+
+    # Year master: 2020 up to next year
+    "pc_production.pc_production.doctype.year.year.ensure_years",
 ]
+
+
+# Adds next year to the Year master (idempotent, so a missed run is caught up)
+scheduler_events = {
+    "daily": [
+        "pc_production.pc_production.doctype.year.year.ensure_years",
+    ],
+}
