@@ -162,7 +162,7 @@
    "creation": "2026-11-27 12:00:00.000000",
    "default": "0",
    "depends_on": null,
-   "description": "Set when the Item Code was auto-generated. Only such codes get the XX Brand placeholder replaced when a Brand is set.",
+   "description": "Set when the Item Code was auto-generated. Only such codes are renamed to follow the Brand.",
    "docstatus": 0,
    "dt": "Item",
    "fetch_from": null,
@@ -235,7 +235,7 @@
    "name": "Item-item_code-description",
    "property": "description",
    "property_type": "Small Text",
-   "value": "Leave blank to auto-generate: Parent Group Abbr-Item Group Abbr-Brand Short Name-Number (XX in place of the Brand until a Brand is set)"
+   "value": "Leave blank to auto-generate: Parent Group Abbr-Item Group Abbr-Brand Short Name-Number (Brand Short Name left out when no Brand is set)"
   },
   {
    "doc_type": "Item",

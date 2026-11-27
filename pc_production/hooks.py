@@ -389,13 +389,16 @@ doctype_js = {
 override_doctype_class = {
     "Stock Entry":
         "pc_production.stock_entry.CustomStockEntry",
+    # Keeps the auto Item Code as the name when Item Naming By = Naming Series
+    "Item":
+        "pc_production.item_code.CustomItem",
 }
 
 
 doc_events = {
 
-    # Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>-<Brand Short Name>-<n>
-    # (Brand segment is XX until a Brand is set, then the Item is renamed)
+    # Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>[-<Brand Short Name>]-<n>
+    # (Brand segment left out without a Brand; added by a rename once one is set)
     "Item": {
         "before_insert": "pc_production.item_code.set_auto_item_code",
         "validate": "pc_production.item_code.validate_brand_in_item_code",

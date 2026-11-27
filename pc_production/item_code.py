@@ -5,20 +5,26 @@ import frappe
 from frappe import _
 from frappe.model.naming import getseries
 
-# Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>-<Brand Short Name>-<running number>
-# e.g. FG-WE-PK-1, FG-WE-XX-2, FG-WE-PW-3 ...
+from erpnext.stock.doctype.item.item import Item
+
+# Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>[-<Brand Short Name>]-<running number>
+# e.g. FG-WE-PK-1, FG-WE-2, FG-WE-PW-3, FG-WE-4 ...
 #
-# - No Brand: the Brand segment is the placeholder "XX".
+# - No Brand: the Brand segment is left out (FG-WE-2).
 # - The running number is unique per <Parent>-<Group> across all brands, so the
-#   Brand segment can be swapped without touching the number.
+#   Brand segment can be added, swapped or dropped without touching the number.
 # - On an auto-generated code the Brand segment follows the Brand: setting or
 #   changing the Brand renames the Item (Frappe rename_doc, so links follow),
-#   e.g. FG-WE-XX-2 -> FG-WE-PW-2; clearing it goes back to XX. If the new code
-#   is already taken the save is refused, so code and Brand never disagree.
+#   e.g. FG-WE-4 -> FG-WE-PW-4; clearing it drops the segment again. If the new
+#   code is already taken the save is refused, so code and Brand never disagree.
+# - Codes made by the earlier version with an "XX" placeholder (FG-WE-XX-2) are
+#   read as "no Brand": they keep their code until a Brand is set.
 # - custom_auto_item_code marks codes built here. Typed codes, and codes renamed
 #   by hand afterwards, are never renamed automatically.
+# - CustomItem keeps the generated code as the Item name also when Stock
+#   Settings > Item Naming By is "Naming Series".
 
-BRAND_PLACEHOLDER = "XX"
+LEGACY_BRAND_PLACEHOLDER = "XX"
 
 
 def set_auto_item_code(doc, method=None):
@@ -27,13 +33,31 @@ def set_auto_item_code(doc, method=None):
 	if (doc.item_code or "").strip() or doc.variant_of:
 		return
 
-	group_prefix, brand_abbr = get_item_code_prefix(doc).rsplit("-", 1)
+	group_prefix, brand_abbr = get_item_code_parts(doc)
 	number = next_item_number(group_prefix)
 
-	doc.item_code = f"{group_prefix}-{brand_abbr}-{number}"
+	doc.item_code = make_item_code(group_prefix, brand_abbr, number)
 	doc.custom_auto_item_code = 1
 	if not doc.item_name:
 		doc.item_name = doc.item_code
+
+
+def make_item_code(group_prefix, brand_abbr, number):
+	"""FG-WE-PK-1 with a Brand, FG-WE-1 without (no empty segment)."""
+	return "-".join(str(part) for part in (group_prefix, brand_abbr, number) if part)
+
+
+def parse_item_code(code):
+	"""(group_prefix, brand_abbr, number) of an auto-generated code, brand_abbr
+	being "" when the code has no Brand segment; None if it does not fit."""
+	parts = (code or "").split("-")
+	if not all(parts) or not parts[-1].isdigit():
+		return None
+	if len(parts) == 4:  # FG-WE-PK-1 (or legacy FG-WE-XX-1)
+		return f"{parts[0]}-{parts[1]}", parts[2], parts[3]
+	if len(parts) == 3:  # FG-WE-1
+		return f"{parts[0]}-{parts[1]}", "", parts[2]
+	return None
 
 
 def next_item_number(group_prefix):
@@ -88,8 +112,9 @@ def latest_committed_reads():
 
 
 def is_number_used(group_prefix, number):
-	"""True if <group>-<anything>-<number> exists (older per-brand codes, typed
-	codes), so that swapping the Brand segment later stays free.
+	"""True if <group>-<number> or <group>-<any Brand>-<number> exists (older
+	per-brand codes, typed codes), so that changing the Brand segment later
+	stays free.
 
 	Plain read, deliberately no row locks: a locking read here made inserts wait
 	on Item rows that a parallel Brand save had locked while that save waited
@@ -97,10 +122,15 @@ def is_number_used(group_prefix, number):
 	auto-generated numbers apart; a typed code committed in the same instant is
 	still caught by the primary key."""
 	# Segments are A-Z0-9 only (clean_abbr), so no LIKE wildcards to escape.
-	return frappe.db.sql("select name from `tabItem` where name like %s limit 1", f"{group_prefix}-%-{number}")
+	return frappe.db.sql(
+		"select name from `tabItem` where name = %s or name like %s limit 1",
+		(f"{group_prefix}-{number}", f"{group_prefix}-%-{number}"),
+	)
 
 
-def get_item_code_prefix(doc):
+def get_item_code_parts(doc):
+	"""(group_prefix, brand_abbr) for a new Item, e.g. ("FG-WE", "PK") or
+	("FG-WE", "") without a Brand."""
 	if not doc.item_group:
 		frappe.throw(_("Select Item Group to auto-generate the Item Code"))
 
@@ -108,14 +138,14 @@ def get_item_code_prefix(doc):
 		"Item Group", doc.item_group, ["custom_abbreviation", "parent_item_group"]
 	)
 	parent_abbr = parent_group and frappe.db.get_value("Item Group", parent_group, "custom_abbreviation")
-	brand_abbr = get_brand_abbr(doc.brand) if doc.brand else BRAND_PLACEHOLDER
+	brand_abbr = get_brand_abbr(doc.brand) if doc.brand else ""
 
 	missing = []
 	if not parent_abbr:
 		missing.append(_("Abbreviation of parent Item Group {0}").format(frappe.bold(parent_group or "-")))
 	if not group_abbr:
 		missing.append(_("Abbreviation of Item Group {0}").format(frappe.bold(doc.item_group)))
-	if not brand_abbr:
+	if doc.brand and not brand_abbr:
 		missing.append(_("Short Name of Brand {0}").format(frappe.bold(doc.brand)))
 
 	if missing:
@@ -128,7 +158,7 @@ def get_item_code_prefix(doc):
 			title=_("Item Code"),
 		)
 
-	return "-".join(clean_abbr(a) for a in (parent_abbr, group_abbr, brand_abbr))
+	return f"{clean_abbr(parent_abbr)}-{clean_abbr(group_abbr)}", brand_abbr
 
 
 def get_brand_abbr(brand):
@@ -137,31 +167,32 @@ def get_brand_abbr(brand):
 
 def validate_brand_in_item_code(doc, method=None):
 	"""Item validate: if the Brand of an auto-coded Item changed (or is set
-	while the code still has XX), work out the new code and refuse the save
-	when it cannot be used. The rename itself runs in on_change."""
+	while the code has no Brand segment yet), work out the new code and refuse
+	the save when it cannot be used. The rename itself runs in on_change."""
 	if doc.is_new() or not doc.get("custom_auto_item_code") or doc.name != doc.item_code:
 		return
 
-	parts = doc.name.rsplit("-", 2)
-	if len(parts) != 3 or not parts[2].isdigit():
+	parsed = parse_item_code(doc.name)
+	if not parsed:
 		return
-	group_prefix, current_abbr, number = parts
+	group_prefix, current_abbr, number = parsed
+	has_brand_segment = current_abbr not in ("", LEGACY_BRAND_PLACEHOLDER)
 
-	if not (doc.has_value_changed("brand") or (doc.brand and current_abbr == BRAND_PLACEHOLDER)):
+	if not (doc.has_value_changed("brand") or (doc.brand and not has_brand_segment)):
 		return
 
-	new_abbr = get_brand_abbr(doc.brand) if doc.brand else BRAND_PLACEHOLDER
-	if not new_abbr:
+	new_abbr = get_brand_abbr(doc.brand) if doc.brand else ""
+	if doc.brand and not new_abbr:
 		frappe.throw(
-			_("Set the Short Name of Brand {0}: it replaces {1} in Item Code {2}.").format(
-				frappe.bold(doc.brand), frappe.bold(current_abbr), frappe.bold(doc.name)
+			_("Set the Short Name of Brand {0}: it goes into Item Code {1}.").format(
+				frappe.bold(doc.brand), frappe.bold(doc.name)
 			),
 			title=_("Item Code"),
 		)
-	if new_abbr == current_abbr:
-		return
 
-	new_name = f"{group_prefix}-{new_abbr}-{number}"
+	new_name = make_item_code(group_prefix, new_abbr, number)
+	if new_name == doc.name:
+		return
 	# No Series lock here: auto-generated codes never reuse this number, so only
 	# a typed code can compete for new_name, and the rename's primary key check
 	# catches one committed after this read (see update_brand_in_item_code).
@@ -239,3 +270,14 @@ def validate_item_group_abbreviation(doc, method=None):
 	if not re.fullmatch(r"[A-Z0-9]+", abbr):
 		frappe.throw(_("Abbreviation may contain only letters and digits, e.g. FG"))
 	doc.custom_abbreviation = abbr
+
+
+class CustomItem(Item):
+	def autoname(self):
+		# With Stock Settings > Item Naming By = "Naming Series", ERPNext would
+		# replace the code generated in before_insert by the next naming-series
+		# value. Keep the generated code; everything else stays standard.
+		if self.get("custom_auto_item_code") and self.item_code and not self.variant_of:
+			self.item_code = self.name = self.item_code.strip()
+			return
+		super().autoname()
