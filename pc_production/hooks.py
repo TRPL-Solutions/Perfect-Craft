@@ -395,8 +395,12 @@ override_doctype_class = {
 doc_events = {
 
     # Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>-<Brand Short Name>-<n>
+    # (Brand segment is XX until a Brand is set, then the Item is renamed)
     "Item": {
         "before_insert": "pc_production.item_code.set_auto_item_code",
+        "validate": "pc_production.item_code.validate_brand_in_item_code",
+        "on_change": "pc_production.item_code.update_brand_in_item_code",
+        "after_rename": "pc_production.item_code.clear_auto_flag_on_manual_rename",
     },
     "Item Group": {
         "validate": "pc_production.item_code.validate_item_group_abbreviation",
