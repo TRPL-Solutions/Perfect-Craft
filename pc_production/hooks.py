@@ -328,6 +328,23 @@ fixtures = [
     },
 
     {
+        "dt": "Custom Field",
+        "filters": [
+            ["dt", "=", "Landed Cost Voucher"],
+            [
+                "fieldname",
+                "in",
+                [
+                    "custom_production",
+                    "custom_production_month",
+                    "custom_production_year",
+                    "custom_production_cost_center",
+                ],
+            ],
+        ],
+    },
+
+    {
         "dt": "Property Setter",
         "filters": [
             ["doc_type", "=", "Stock Reconciliation Item"],
@@ -360,6 +377,8 @@ doctype_js = {
         "pc_production/doctype/delivery_trip/delivery_trip.js",
     "Work Order":
         "pc_production/doctype/work_order/work_order.js",
+    # Production mode: fetches the month's Manufacture Stock Entries of a Cost Center
+    "Landed Cost Voucher": "public/js/landed_cost_voucher.js",
 }
 
 
