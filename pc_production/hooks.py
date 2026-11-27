@@ -389,9 +389,12 @@ doctype_js = {
 override_doctype_class = {
     "Stock Entry":
         "pc_production.stock_entry.CustomStockEntry",
-    # Keeps the auto Item Code as the name when Item Naming By = Naming Series
-    "Item":
-        "pc_production.item_code.CustomItem",
+}
+
+# Mixin on ERPNext's Item controller (not a replacement): keeps the auto Item
+# Code as the name when Item Naming By = Naming Series
+extend_doctype_class = {
+    "Item": "pc_production.item_code.AutoItemCodeNaming",
 }
 
 

@@ -5,8 +5,6 @@ import frappe
 from frappe import _
 from frappe.model.naming import getseries
 
-from erpnext.stock.doctype.item.item import Item
-
 # Auto Item Code: <Parent Group Abbr>-<Item Group Abbr>[-<Brand Short Name>]-<running number>
 # e.g. FG-WE-PK-1, FG-WE-2, FG-WE-PW-3, FG-WE-4 ...
 #
@@ -21,8 +19,8 @@ from erpnext.stock.doctype.item.item import Item
 #   read as "no Brand": they keep their code until a Brand is set.
 # - custom_auto_item_code marks codes built here. Typed codes, and codes renamed
 #   by hand afterwards, are never renamed automatically.
-# - CustomItem keeps the generated code as the Item name also when Stock
-#   Settings > Item Naming By is "Naming Series".
+# - AutoItemCodeNaming (extend_doctype_class mixin) keeps the generated code as
+#   the Item name also when Stock Settings > Item Naming By is "Naming Series".
 
 LEGACY_BRAND_PLACEHOLDER = "XX"
 
@@ -272,11 +270,15 @@ def validate_item_group_abbreviation(doc, method=None):
 	doc.custom_abbreviation = abbr
 
 
-class CustomItem(Item):
+class AutoItemCodeNaming:
+	"""Mixin added to ERPNext's Item controller via extend_doctype_class.
+
+	With Stock Settings > Item Naming By = "Naming Series", ERPNext's
+	Item.autoname would replace the code generated in before_insert by the next
+	naming-series value. Keep the generated code; every other Item (typed codes,
+	variants) is named by the standard Item.autoname."""
+
 	def autoname(self):
-		# With Stock Settings > Item Naming By = "Naming Series", ERPNext would
-		# replace the code generated in before_insert by the next naming-series
-		# value. Keep the generated code; everything else stays standard.
 		if self.get("custom_auto_item_code") and self.item_code and not self.variant_of:
 			self.item_code = self.name = self.item_code.strip()
 			return
